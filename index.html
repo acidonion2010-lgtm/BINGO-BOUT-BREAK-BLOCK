@@ -1,0 +1,2944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Bingo Bout: Break & Block</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        :root {
+            --color-title: #f1c40f;
+            --color-p1: #e74c3c;
+            --color-p2: #3498db;
+            --color-inning-progress: #2ecc71;
+            /* 9 INNINGS only. Do not reuse title, p1, p2, or inning-progress. */
+            --color-nine-innings: #9a2d62;
+            --hud-score-size: 52px;
+            --cell-size: 80px;
+            --cell-gap: 6px;
+            --grid-size: calc(var(--cell-size) * 3 + var(--cell-gap) * 2);
+        }
+        html { overflow-x: hidden; background: #1a1a1a; }
+        body {
+            --grid-size: calc(var(--cell-size) * 3 + var(--cell-gap) * 2);
+            font-family: monospace; text-align: center; background: #1a1a1a; color: #fff; margin: 0; padding: 0; overflow-x: hidden; overflow-y: hidden;
+        }
+        #game-root {
+            box-sizing: border-box;
+            width: 100%;
+            padding: clamp(8px, 3vw, 20px);
+            position: relative;
+        }
+        
+        /* タイトル */
+        h1 { 
+            color: var(--color-title); 
+            font-size: clamp(36px, 8.4vw, 60px); 
+            margin-bottom: 2px; 
+            margin-top: 2px;
+            text-shadow: 3px 3px #c0392b, 6px 6px #000; 
+            letter-spacing: 1px;
+            line-height: 1.12;
+            overflow: visible;
+            padding: 4px 10px 0;
+        }
+        h1 span { 
+            display: block;
+            font-size: clamp(28px, 6.8vw, 48px);
+            color: var(--color-title);
+            text-shadow: 3px 3px #c0392b, 6px 6px #000; 
+            line-height: 1.12;
+        }
+        .quick-rules { max-width: 100%; margin: 2px auto 4px; display: flex; justify-content: center; flex-wrap: nowrap; color: #bdc3c7; font-size: clamp(8px, 1.7vw, 12px); line-height: 1.2; font-weight: bold; white-space: nowrap; overflow: hidden; }
+        .quick-rules span { white-space: nowrap; }
+        .quick-rules span + span::before { content: "｜"; margin: 0 3px; color: #7f8c8d; }
+        .quick-rules .rule-inning { color: var(--color-nine-innings); font-size: 1em; }
+
+        .start-panel {
+            max-width: 520px; margin: 10px auto 14px; padding: 6px;
+        }
+        .start-panel.hidden { display: none; }
+        .seat-buttons, .modal-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .seat-buttons { flex-wrap: nowrap; }
+        .seat-buttons .modal-btn { flex: 1 1 0; min-width: 0; min-height: 42px; padding: 9px 12px; font-size: 14px; }
+        .seat-choice-btn { background: #3d4c59 !important; }
+        .seat-choice-btn:hover { background: #536675 !important; }
+        .seat-choice-first { color: #f7d674 !important; border-color: #f1c40f !important; box-shadow: inset 0 -2px 0 #f1c40f; }
+        .seat-choice-second { color: #ecf0f1 !important; border-color: #bdc3c7 !important; box-shadow: inset 0 -2px 0 #bdc3c7; }
+        .seat-btn-secondary { background: #3d4c59 !important; border-color: #95a5a6 !important; }
+        .seat-btn-secondary:hover { background: #536675 !important; }
+        
+        /* 得点と回を一体化したHUD */
+        .battle-stage {
+            width: 100%; max-width: 760px; margin: 14px auto 20px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-areas:
+                "center center"
+                "p1 p2";
+            column-gap: clamp(20px, 5vw, 40px); row-gap: 12px;
+            align-items: start; justify-items: center;
+        }
+        .battle-center { grid-area: center; width: 100%; min-width: 0; text-align: center; }
+        #p1-panel { grid-area: p1; }
+        #p2-panel { grid-area: p2; }
+        .match-hud {
+            width: max-content; max-width: 100%; margin: 0 auto 8px; padding: 4px 10px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            background: #22313f; border: 2px solid #34495e; border-radius: 6px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .hud-player {
+            display: flex; flex-direction: row; align-items: center; gap: 12px;
+            font-size: 12px; font-weight: bold; white-space: nowrap;
+        }
+        .hud-player-p1 { justify-content: flex-end; }
+        .hud-player-p2 { justify-content: flex-start; }
+        .hud-name-stack {
+            display: flex; flex-direction: column-reverse; align-items: center;
+            justify-content: center; gap: 4px; line-height: 1;
+        }
+        .hud-seat {
+            display: none; flex: 0 0 auto; font-size: 12px; font-weight: 900; letter-spacing: 0.6px;
+            color: inherit; line-height: 1;
+        }
+        .hud-seat.show { display: block; }
+        .hud-name {
+            flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+            font-size: calc((var(--hud-score-size) - 14px) * 0.75); font-weight: 900; line-height: 1;
+        }
+        .hud-score-number {
+            font-size: var(--hud-score-size); line-height: 1;
+            font-variant-numeric: tabular-nums;
+            min-width: 2ch;
+            text-align: center;
+        }
+        .hud-point { font-size: 9px; opacity: 0.75; letter-spacing: 0.4px; }
+        .hud-score-number.score-pop { animation: scorePop 0.42s ease-out; }
+        @keyframes scorePop {
+            0% { transform: scale(1); color: inherit; }
+            38% { transform: scale(1.45) rotate(-3deg); color: #f1c40f; text-shadow: 0 0 16px #f1c40f; }
+            100% { transform: scale(1); color: inherit; text-shadow: none; }
+        }
+
+        /* コメント欄とイニング表示の統合UI */
+        .status-box { 
+            background: #2c3e50; 
+            border: 2px solid #34495e; 
+            width: 100%; 
+            margin: 0 auto; 
+            padding: 8px 15px; 
+            border-radius: 6px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            gap: 12px; 
+            min-height: 48px; 
+            transition: 0.2s; 
+            box-sizing: border-box;
+        }
+        .status-box.error { color: #e74c3c; border-color: #e74c3c; animation: shake 0.3s; background: #4a2323; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
+
+        /* イニング表示 */
+        .inning-board { 
+            font-size: 30px;
+            color: var(--color-inning-progress); 
+            font-weight: bold; 
+            background: #1a252f; 
+            padding: 0 8px; 
+            border-radius: 4px; 
+            border: 1px solid #34495e; 
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            flex-shrink: 0;
+            line-height: 1;
+            min-height: 0;
+        }
+        .inning-max { font-size: 0.58em; opacity: 0.8; font-weight: bold; letter-spacing: 0; }
+        .inning-max-n { font-size: 0.85em; }
+        .inning-board.climax { 
+            color: #e74c3c; 
+            animation: pulse 0.8s infinite alternate; 
+            border-color: #c0392b; 
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5); 
+        }
+        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
+
+        .action-msg {
+            font-weight: bold; 
+            font-size: 15px; 
+            color: #f39c12; 
+            flex: 1; 
+            text-align: center;
+        }
+        .player-panel { position: relative; width: max-content; max-width: 100%; margin-inline: auto; background: #2c3e50; padding: 10px 10px 12px; border: 3px solid #34495e; border-radius: 8px; transition: 0.3s; box-sizing: border-box; }
+        .panel-active { border-color: #f1c40f; box-shadow: 0 0 15px rgba(241, 196, 15, 0.4); }
+        .panel-inactive { opacity: 0.4; filter: grayscale(50%); }
+
+        .panel-win { border-color: #f1c40f !important; box-shadow: 0 0 40px rgba(241, 196, 15, 0.8) !important; animation: winBounce 1s infinite alternate; z-index: 10; opacity: 1; filter: none; }
+        .panel-win::before { content: "WINNER!"; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); background: #f1c40f; color: #000; padding: 5px 20px; border-radius: 20px; font-weight: bold; font-size: 22px; z-index: 20; box-shadow: 0 0 15px #f1c40f; letter-spacing: 2px; }
+        @keyframes winBounce { 0% { transform: translateY(0); } 100% { transform: translateY(-10px); } }
+        
+        .panel-lose { filter: grayscale(80%) brightness(0.4) !important; transform: scale(0.95); transition: all 1s ease; opacity: 0.8; }
+        .panel-lose::before { content: "LOSE..."; position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #7f8c8d; color: #fff; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 16px; z-index: 20; }
+        
+        .panel-draw { filter: sepia(50%) brightness(0.8) !important; }
+        .panel-draw::before { content: "DRAW"; position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #95a5a6; color: #fff; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 16px; z-index: 20; }
+
+        .player-panel h3 { font-size: 18px; margin-top: 0; margin-bottom: 8px; color: #fff; width: var(--grid-size); max-width: 100%; text-align: center; }
+        .text-p1 { color: var(--color-p1); } 
+        .text-p2 { color: var(--color-p2); } 
+
+        .grid-wrapper { position: relative; width: var(--grid-size); height: var(--grid-size); margin: 10px auto 0; }
+        .block-burst-label {
+            position: absolute; left: 50%; top: 42%; z-index: 18; pointer-events: none;
+            color: #f1c40f; font-size: 22px; font-weight: 900; letter-spacing: 1px;
+            text-shadow: 2px 2px #000, 0 0 10px rgba(241,196,15,0.8);
+            opacity: 0; visibility: hidden; transform: translate(-50%, -50%) scale(0.6);
+        }
+        .block-burst-label.show { visibility: visible; animation: blockBurstPop 520ms ease-out both; }
+        .block-burst-label.blocked { color: #ff8a7a; text-shadow: 2px 2px #000, 0 0 10px rgba(231,76,60,0.85); }
+        @keyframes blockBurstPop {
+            0% { opacity: 0; transform: translate(-50%, -40%) scale(0.55); }
+            28% { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+            70% { opacity: 1; transform: translate(-50%, -62%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -78%) scale(0.92); }
+        }
+        .grid { display: grid; grid-template-columns: repeat(3, minmax(0, var(--cell-size))); grid-template-rows: repeat(3, minmax(0, var(--cell-size))); gap: var(--cell-gap); position: absolute; top: 0; left: 0; width: var(--grid-size); height: var(--grid-size); margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* ライン表示レイヤー */
+        .lines-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; overflow: visible; }
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+
+        .cell { 
+            background: #7f8c8d; 
+            border: 3px solid #95a5a6; 
+            font-weight: bold; 
+            color: #fff; 
+            cursor: pointer; 
+            border-radius: 4px; 
+            transition: 0.1s; 
+            position: relative; 
+            overflow: hidden; 
+            margin: 0;
+            padding: 0;
+            min-width: 0;
+            min-height: 0;
+            max-width: var(--cell-size);
+            max-height: var(--cell-size);
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
+            width: var(--cell-size); 
+            height: var(--cell-size);
+            font-size: calc(var(--cell-size) * 0.3); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+        .cell:hover:not(:disabled) { background: #bdc3c7; }
+
+        .grid.spatial-shuffling .cell {
+            z-index: 3; will-change: transform; pointer-events: none;
+            box-shadow: 0 0 12px rgba(241, 196, 15, 0.35);
+            transition-property: transform, box-shadow, background-color, border-color;
+            transition-duration: 360ms;
+            transition-timing-function: cubic-bezier(0.22, 0.8, 0.28, 1);
+        }
+        .grid.spatial-shuffling .cell-text { animation: shuffleNumberPulse 2050ms ease-in-out both; }
+        @keyframes shuffleNumberPulse {
+            0%, 100% { transform: scale(1); color: #fff; text-shadow: none; }
+            18%, 72% { transform: scale(1.22); color: #f1c40f; text-shadow: 0 0 12px #f1c40f; }
+            44% { transform: scale(0.92); color: #fff; text-shadow: 0 0 5px #fff; }
+        }
+        .grid-wrapper.shuffle-landing { animation: shuffleLanding 260ms ease-out; }
+        @keyframes shuffleLanding {
+            0% { transform: translate(0, 0); }
+            22% { transform: translate(-8px, 3px); }
+            48% { transform: translate(7px, -2px); }
+            72% { transform: translate(-4px, 1px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .shuffle-callout {
+            position: absolute; left: 50%; top: 50%; z-index: 90; pointer-events: none;
+            color: #f1c40f; font-size: clamp(42px, 12vw, 86px); font-weight: 900;
+            letter-spacing: 2px; white-space: nowrap; opacity: 0; visibility: hidden;
+            text-shadow: 4px 4px #c0392b, 8px 8px #000, 0 0 28px #f1c40f;
+            transform: translate(-50%, -50%) scale(0.35);
+        }
+        .shuffle-callout.show { visibility: visible; animation: shuffleCallout 820ms cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+        @keyframes shuffleCallout {
+            0% { opacity: 0; transform: translate(-50%, -42%) scale(0.35); }
+            24% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            55% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -58%) scale(1.35); }
+        }
+
+        .score-gain-callout {
+            position: absolute; left: 50%; top: 48%; z-index: 95; pointer-events: none;
+            color: #f1c40f; font-size: clamp(40px, 12vw, 72px); font-weight: 900;
+            line-height: 1; letter-spacing: 1px; white-space: nowrap;
+            opacity: 0; visibility: hidden; transform: translate(-50%, -50%) scale(0.35);
+            text-shadow: 3px 3px #c0392b, 6px 6px #000, 0 0 26px rgba(241, 196, 15, 0.95);
+        }
+        .score-gain-callout.show {
+            visibility: visible; animation: scoreGainBurst 920ms cubic-bezier(0.16, 0.9, 0.25, 1) both;
+        }
+        @keyframes scoreGainBurst {
+            0% { opacity: 0; transform: translate(-50%, -42%) scale(0.35) rotate(-5deg); }
+            22% { opacity: 1; transform: translate(-50%, -50%) scale(1.18) rotate(2deg); }
+            58% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); }
+            100% { opacity: 0; transform: translate(-50%, -75%) scale(1.12); }
+        }
+        
+        /* 数字テキストのレイヤー固定 */
+        .cell-text { position: relative; z-index: 2; }
+
+        .cell.marked-p1 { background: #e74c3c; border-color: #c0392b; cursor: not-allowed; }
+        .cell.marked-p2 { background: #3498db; border-color: #2980b9; cursor: not-allowed; }
+        .cell.scored-number {
+            border-color: #f1c40f !important;
+            box-shadow: 0 0 14px rgba(241, 196, 15, 0.85), inset 0 0 12px rgba(241, 196, 15, 0.45);
+        }
+        .cell.scored-number::before {
+            content: "SCORED"; position: absolute; top: 4px; right: 4px; z-index: 4;
+            padding: 1px 2px; border-radius: 2px; background: #f1c40f; color: #151515;
+            font-size: 7px; line-height: 1; letter-spacing: 0; font-weight: 900;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.55);
+        }
+        .cell.scored-number .cell-text { color: #fff9c4; text-shadow: 0 0 8px #f1c40f, 0 2px 3px #000; }
+        .cell:disabled { cursor: not-allowed; opacity: 0.9; }
+
+        .cell.ripping {
+            overflow: visible; z-index: 8;
+            animation: breakPunchShake 0.28s ease-out;
+        }
+        .cell.ripping::after {
+            content: ""; position: absolute; left: 50%; top: 50%; z-index: 5; pointer-events: none;
+            width: calc(var(--cell-size) * 1.35); height: calc(var(--cell-size) * 1.35);
+            background-repeat: no-repeat; background-position: center; background-size: contain;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%23111111' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='3.4' d='M63 30 L72 16 L78 6'/%3E%3Cpath stroke-width='1.8' d='M70 20 L75 24'/%3E%3Cpath stroke-width='2.3' d='M70 46 L86 40 L96 36'/%3E%3Cpath stroke-width='3.8' d='M66 64 L80 76 L88 90'/%3E%3Cpath stroke-width='2.1' d='M78 78 L84 74'/%3E%3Cpath stroke-width='2' d='M50 72 L47 88 L43 98'/%3E%3Cpath stroke-width='3.1' d='M33 66 L20 78 L10 90'/%3E%3Cpath stroke-width='2.5' d='M28 50 L12 53 L2 55'/%3E%3Cpath stroke-width='2.9' d='M32 34 L18 20 L8 8'/%3E%3Cpath stroke-width='1.5' d='M48 28 L44 14 L45 4'/%3E%3Cpath stroke-width='1.7' d='M60 70 L68 86 L70 96'/%3E%3Cpath stroke-width='1.3' d='M72 58 L90 62'/%3E%3C/g%3E%3Cpolygon fill='%23000000' points='47,33 64,37 54,47'/%3E%3Cpolygon fill='%23000000' points='68,48 68,64 56,54'/%3E%3Cpolygon fill='%23000000' points='42,70 58,74 50,60'/%3E%3Cpolygon fill='%23000000' points='28,44 32,60 42,50'/%3E%3Cpolygon fill='%23ffffff' stroke='%23111111' stroke-width='1.15' stroke-linejoin='round' points='44,29 63,34 52,45'/%3E%3Cpolygon fill='%23ffffff' stroke='%23111111' stroke-width='1.15' stroke-linejoin='round' points='72,44 71,63 57,53'/%3E%3Cpolygon fill='%23ffffff' stroke='%23111111' stroke-width='1.15' stroke-linejoin='round' points='40,73 59,76 50,58'/%3E%3Cpolygon fill='%23ffffff' stroke='%23111111' stroke-width='1.15' stroke-linejoin='round' points='24,42 30,61 42,50'/%3E%3Cpolygon fill='%23ffffff' stroke='%23111111' stroke-width='1.05' stroke-linejoin='round' points='58,22 70,32 56,36'/%3E%3Cpath fill='%230a0a0a' d='M51 37 L60 36 L67 43 L66 54 L57 62 L46 63 L38 55 L37 44 L44 37 Z'/%3E%3Cpath fill='%23000000' d='M50 42 L57 43 L58 51 L52 57 L45 55 L42 47 Z'/%3E%3C/svg%3E");
+            animation: breakHoleBurst 0.4s ease-out forwards;
+        }
+        @keyframes breakPunchShake {
+            0% { transform: scale(1); }
+            35% { transform: scale(0.92); }
+            100% { transform: scale(1); }
+        }
+        @keyframes breakHoleBurst {
+            0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+            22% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.55); opacity: 0; }
+        }
+
+        .cell.shield-miss { animation: shieldMissCell 0.72s ease-out; }
+        .cell.shield-miss::before {
+            content: "MISS"; position: absolute; top: 4px; left: 50%; z-index: 7;
+            color: #d8f2ff; font-size: 12px; font-weight: 900; letter-spacing: 0.7px;
+            text-shadow: 0 1px 4px #000, 0 0 8px #3498db; animation: shieldMissLabel 0.72s ease-out forwards;
+        }
+        .cell.shield-miss::after,
+        .cell.block-clash::after {
+            content: ""; position: absolute; top: 50%; left: 50%; z-index: 6;
+            width: calc(var(--cell-size) * 0.55); height: calc(var(--cell-size) * 0.675);
+            background-repeat: no-repeat; background-position: center; background-size: contain;
+        }
+        .cell.shield-miss::after { animation: shieldMissFly 0.72s ease-out forwards; }
+        #board1 .cell.shield-miss::after, #board1 .cell.block-clash::after {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 40'%3E%3Cpath fill='%23e74c3c' stroke='%23ffffff' stroke-width='2.2' stroke-linejoin='round' d='M16 3 L28 8.5 V21 C28 29 16 36.5 16 36.5 C16 36.5 4 29 4 21 V8.5 Z'/%3E%3Cpath fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' d='M16 12 V27'/%3E%3C/svg%3E");
+            filter: drop-shadow(0 0 10px var(--color-p1));
+        }
+        #board2 .cell.shield-miss::after, #board2 .cell.block-clash::after {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 40'%3E%3Cpath fill='%233498db' stroke='%23ffffff' stroke-width='2.2' stroke-linejoin='round' d='M16 3 L28 8.5 V21 C28 29 16 36.5 16 36.5 C16 36.5 4 29 4 21 V8.5 Z'/%3E%3Cpath fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' d='M16 12 V27'/%3E%3C/svg%3E");
+            filter: drop-shadow(0 0 10px var(--color-p2));
+        }
+        @keyframes shieldMissCell {
+            0%, 100% { box-shadow: none; }
+            34% { box-shadow: inset 0 0 24px rgba(52,152,219,0.62), 0 0 18px rgba(52,152,219,0.55); }
+        }
+        @keyframes shieldMissFly {
+            0% { transform: translate(-50%, -50%) scale(0.25); opacity: 0; }
+            22% { transform: translate(-50%, -50%) scale(2.05) rotate(0deg); opacity: 1; }
+            54% { transform: translate(-30%, -60%) scale(1.75) rotate(-14deg); opacity: 0.9; }
+            100% { transform: translate(60%, -145%) scale(0.9) rotate(38deg); opacity: 0; }
+        }
+        @keyframes shieldMissLabel {
+            0%, 16% { transform: translate(-50%, 7px) scale(0.5); opacity: 0; }
+            30%, 67% { transform: translate(-50%, 0) scale(1.18); opacity: 1; }
+            100% { transform: translate(-50%, -12px) scale(0.95); opacity: 0; }
+        }
+
+        .cell.block-clash { animation: blockClashCell 0.68s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+        .cell.block-clash::before {
+            content: ""; position: absolute; top: 50%; left: 50%; z-index: 5;
+            width: calc(var(--cell-size) * 0.72); height: calc(var(--cell-size) * 0.72);
+            background-repeat: no-repeat; background-position: center; background-size: contain;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpolygon fill='%23e74c3c' points='32,1 39,15 54,6 49,22 63,24 51,34 62,50 44,44 38,62 32,49 20,61 24,43 4,48 16,35 2,22 18,24 12,5 27,14'/%3E%3Cpolygon fill='%23e67e22' points='32,10 38,20 49,14 45,26 56,29 45,36 54,48 40,42 36,56 32,46 22,55 26,40 10,44 20,34 9,24 22,26 18,12 29,20'/%3E%3Cpolygon fill='%23f1c40f' points='32,20 36,27 45,23 42,32 50,35 41,39 47,48 36,43 33,52 30,43 21,49 26,38 16,36 24,32 17,24 29,28'/%3E%3C/svg%3E");
+            animation: breakAttemptImpact 0.68s ease-out forwards;
+        }
+        .cell.block-clash::after { animation: shieldCatch 0.68s cubic-bezier(0.2, 0.9, 0.25, 1) forwards; }
+        @keyframes breakAttemptImpact {
+            0% { transform: translate(-230%, -50%) scale(0.25) rotate(-10deg); opacity: 0; }
+            20% { transform: translate(-105%, -50%) scale(1.2) rotate(-4deg); opacity: 1; }
+            42% { transform: translate(-50%, -50%) scale(2.75) rotate(0deg); opacity: 1; filter: drop-shadow(0 0 13px #e74c3c); }
+            58% { transform: translate(-125%, -68%) scale(1.55) rotate(-20deg); opacity: 0.9; }
+            100% { transform: translate(-280%, -125%) scale(0.45) rotate(-55deg); opacity: 0; }
+        }
+        @keyframes shieldCatch {
+            0%, 18% { transform: translate(-15%, -50%) scale(0.25) rotate(0deg); opacity: 0; }
+            42% { transform: translate(-50%, -50%) scale(1.6) rotate(0deg); opacity: 1; }
+            56% { transform: translate(-34%, -50%) scale(2.55) rotate(9deg); opacity: 1; }
+            74% { transform: translate(-56%, -50%) scale(2.15) rotate(-4deg); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.9) rotate(0deg); opacity: 1; }
+        }
+        @keyframes blockClashCell {
+            0% { transform: scale(1); background: #7f8c8d; box-shadow: none; }
+            35% { transform: translateX(4px) scale(0.9); background: #4b3434; box-shadow: inset 0 0 18px #e74c3c; }
+            48% { transform: translateX(-7px) scale(1.08); background: #2980b9; box-shadow: inset 0 0 24px #f1c40f, 0 0 22px #3498db; border-color: #f1c40f; }
+            66% { transform: translateX(3px) scale(1.03); background: #2980b9; box-shadow: inset 0 0 20px #f1c40f, 0 0 18px #3498db; border-color: #f1c40f; }
+            100% { transform: scale(1); background: #7f8c8d; box-shadow: 0 0 12px rgba(241,196,15,0.5); border-color: #95a5a6; }
+        }
+
+        /* 対戦モードと補助操作 */
+        .setup-toolbar { max-width: 650px; margin: 0 auto 2px; display: flex; justify-content: center; align-items: center; gap: 2px 12px; flex-wrap: wrap; }
+        body.match-live .mode-select { display: none; }
+        .mode-select, .utility-controls { display: flex; justify-content: center; align-items: center; gap: 2px; flex-wrap: wrap; }
+        .control-label { color: #95a5a6; font-size: 10px; font-weight: bold; letter-spacing: 0.8px; }
+        button.mode-btn { min-height: 36px; min-width: 44px; padding: 6px 8px; font-size: 10px; background: #34495e; color: white; border: 1px solid #7f8c8d; border-radius: 3px; cursor: pointer; font-family: monospace; font-weight: bold; transition: 0.2s; touch-action: manipulation; }
+        button.mode-btn.active { background: #27ae60; border-color: #2ecc71; }
+        button.mode-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .mode-select button.mode-btn {
+            min-height: 26px; padding: 3px 5px 2px; margin: 0; background: transparent;
+            border: none; border-bottom: 2px solid transparent; border-radius: 0; color: #95a5a6; font-size: 11px;
+        }
+        .mode-select button.mode-btn.active { background: transparent; color: #2ecc71; border-bottom-color: #2ecc71; }
+        .mode-select button.mode-btn:hover:not(:disabled) { color: #ecf0f1; }
+        .mode-tab-sep { color: #7f8c8d; font-size: 12px; font-weight: bold; pointer-events: none; }
+        button.mode-btn.how-to-btn,
+        button.mode-btn.mute-btn,
+        button.mode-btn.quit-btn {
+            min-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            line-height: 1;
+        }
+        button.mode-btn.how-to-btn { background: #1e1e1e; border-color: #3a3a3a; color: #9a9a9a; }
+        button.mode-btn.mute-btn { background: #8a2e00; border-color: #a33a00; }
+        button.mode-btn.mute-btn.muted { background: #7f8c8d; border-color: #95a5a6; color: #ccc; }
+        button.mode-btn.quit-btn { background: #6d2424; border-color: #e74c3c; color: #ffd7d2; }
+        button.mode-btn.quit-btn:hover { background: #a93226; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; padding: 12px; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; overflow-y: auto; }
+        .modal-overlay.show { display: flex; }
+        
+        .modal-box { width: min(450px, 100%); max-height: calc(100vh - 24px); overflow-y: auto; background: #2c3e50; border: 3px solid #f1c40f; border-radius: 8px; padding: 30px 40px; text-align: center; box-shadow: 0 0 40px rgba(241, 196, 15, 0.6); animation: modalPop 0.3s ease-out; position: relative; z-index: 110; }
+        .modal-box.win-flash { animation: modalPop 0.3s ease-out, winGlow 1.5s infinite alternate; }
+        .modal-box.lose-flash { border-color: #e74c3c; animation: modalPop 0.3s ease-out, loseShake 0.42s ease-out, loseGlow 0.85s ease-out; }
+        .modal-box.lose-flash .modal-title { color: #ff7668; }
+        @keyframes winGlow { 0% { box-shadow: 0 0 30px rgba(241, 196, 15, 0.5); } 100% { box-shadow: 0 0 100px rgba(241, 196, 15, 1), 0 0 40px #fff; border-color: #fff; } }
+        @keyframes loseShake {
+            0%, 100% { transform: translateX(0); }
+            18% { transform: translateX(-7px); }
+            36% { transform: translateX(6px); }
+            54% { transform: translateX(-4px); }
+            72% { transform: translateX(3px); }
+        }
+        @keyframes loseGlow {
+            0% { box-shadow: 0 0 10px rgba(231, 76, 60, 0.25); }
+            35% { box-shadow: 0 0 34px rgba(231, 76, 60, 0.9); }
+            100% { box-shadow: 0 0 14px rgba(231, 76, 60, 0.35); }
+        }
+        
+        @keyframes modalPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .modal-title { font-size: 24px; color: #f1c40f; font-weight: bold; margin-bottom: 15px; }
+        .modal-score-label { margin: 0 0 6px; color: #95a5a6; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; }
+        .modal-score { display: flex; justify-content: center; align-items: center; gap: 16px; margin: 4px 0 16px; font-size: clamp(42px, 10vw, 64px); line-height: 1; font-weight: bold; }
+        .modal-score-separator { color: #f1c40f; font-size: 0.7em; }
+        .modal-body { font-size: 16px; line-height: 1.8; margin-bottom: 25px; white-space: pre-line; }
+        .modal-body:empty { display: none; margin: 0; }
+        .modal-btn { min-height: 44px; padding: 12px 28px; font-size: 16px; background: #27ae60; color: white; border: 2px solid #2ecc71; border-radius: 4px; cursor: pointer; font-family: monospace; font-weight: bold; transition: 0.2s; touch-action: manipulation; }
+        .modal-btn:hover { background: #2ecc71; transform: scale(1.05); }
+        .result-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .result-actions .modal-btn { width: 100%; min-width: 0; margin: 0; }
+        .result-actions .result-quit { grid-column: 1 / -1; }
+        .quit-confirm-box { border-color: #e74c3c; box-shadow: 0 0 40px rgba(231, 76, 60, 0.55); }
+        .quit-confirm-box .modal-title { color: #ff7668; }
+        .modal-btn.quit-danger { background: #a93226; border-color: #e74c3c; }
+        .modal-btn.quit-danger:hover { background: #e74c3c; }
+        button:active:not(:disabled) { transform: translateY(2px); }
+
+        /* 人間2人対戦：BREAK決定後の端末受け渡し */
+        body.handoff-locked { overflow: hidden; }
+        .handoff-overlay {
+            display: none; position: fixed; inset: 0; z-index: 300; padding: 16px;
+            justify-content: center; align-items: center; overflow-y: auto;
+            background: radial-gradient(circle at center, #263746 0%, #111820 45%, #080b0e 100%);
+            overscroll-behavior: contain;
+        }
+        .handoff-overlay.show { display: flex; }
+        .handoff-box {
+            width: min(460px, 100%); padding: clamp(26px, 7vw, 46px) clamp(18px, 6vw, 38px);
+            background: #1d2a35; border: 4px solid #f1c40f; border-radius: 12px;
+            box-shadow: 0 0 50px rgba(241, 196, 15, 0.55); text-align: center;
+            animation: modalPop 0.24s ease-out;
+        }
+        .handoff-kicker { color: #e74c3c; font-size: 14px; font-weight: bold; letter-spacing: 2px; }
+        .handoff-icon { margin: 12px 0 6px; font-size: clamp(48px, 15vw, 78px); line-height: 1; }
+        .handoff-title {
+            margin: 0 0 14px; color: #f1c40f; font-size: clamp(24px, 7vw, 34px);
+            line-height: 1.25; text-shadow: 2px 2px #000;
+        }
+        .handoff-player { margin-bottom: 8px; color: #fff; font-size: clamp(18px, 5vw, 23px); font-weight: bold; }
+        .handoff-body { margin: 0 0 24px; color: #d5dde3; font-size: 15px; line-height: 1.65; }
+        .handoff-ready-btn { width: min(310px, 100%); font-size: 18px; }
+        .handoff-ready-btn:focus-visible { outline: 4px solid #fff; outline-offset: 4px; }
+        .handoff-ready-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+        .handoff-audio {
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+            margin: 0 0 16px; flex-wrap: wrap;
+        }
+        .handoff-audio .mode-btn { min-height: 40px; min-width: 72px; font-size: 12px; }
+
+        .how-to-box { max-width: 620px; text-align: left; }
+        .how-to-box .modal-title { text-align: center; }
+        .how-to-body { font-size: 15px; line-height: 1.65; }
+        .how-to-body ol { margin: 0 0 20px; padding-left: 1.8em; }
+        .how-to-body li { margin-bottom: 6px; }
+        .how-to-box .modal-actions { text-align: center; }
+
+        .confetti-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 90; overflow: hidden; display: none; }
+        .confetti { position: absolute; top: -20px; width: 14px; height: 14px; opacity: 0.9; }
+        @keyframes confettiFall { 0% { transform: translateY(0) rotate(0deg); } 100% { transform: translateY(110vh) rotate(720deg); } }
+
+        /* Wide / 16:9 frame (Poki-style iframe): fill one screen, no scroll.
+           Phone stacked layout (max-width: 680px) is left unchanged. */
+        @media (min-width: 681px) {
+            html, body { height: 100%; overflow: hidden; }
+            body {
+                min-height: 100svh;
+                max-height: 100svh;
+            }
+            #game-root {
+                display: flex;
+                flex-direction: column;
+                min-height: 100svh;
+                padding: 4px 16px 8px;
+            }
+            h1, .quick-rules, .setup-toolbar, .start-panel { flex-shrink: 0; }
+            h1 {
+                margin-top: 0;
+                margin-bottom: 0;
+                padding: 2px 12px 0;
+                font-size: clamp(34px, 4.8vw, 58px);
+                line-height: 1.08;
+            }
+            h1 span { font-size: clamp(23px, 3.4vw, 42px); line-height: 1.08; }
+            .battle-stage {
+                flex: 1 1 auto;
+                min-height: 0;
+                width: 100%;
+                max-width: 100%;
+                margin: 4px auto 0;
+                grid-template-columns: max-content max-content;
+                justify-content: center;
+                justify-items: center;
+                align-content: center;
+                align-items: center;
+                column-gap: 24px;
+                row-gap: 10px;
+            }
+            .battle-center { width: auto; justify-self: stretch; }
+            .player-panel { max-width: none; }
+            .player-panel h3 { font-size: clamp(14px, calc(var(--cell-size) * 0.2), 22px); }
+            body.match-live .battle-stage { margin: 4px auto 0; }
+        }
+
+        @media (max-width: 680px) {
+            html, body { overflow-x: hidden; overflow-y: hidden; height: 100svh; }
+            #game-root {
+                padding: 8px;
+                display: flex;
+                flex-direction: column;
+                min-height: 100svh;
+            }
+            h1, .quick-rules, .setup-toolbar, .start-panel { flex-shrink: 0; }
+            h1 { margin-top: 1px; margin-bottom: 1px; padding: 2px 8px 0; font-size: clamp(26px, 7.2vw, 42px); }
+            h1 span { font-size: clamp(18px, 5.6vw, 32px); }
+            .quick-rules { margin: 1px auto 2px; }
+            .start-panel { margin: 2px auto 2px; padding: 0 4px; }
+            .seat-buttons { gap: 8px; }
+            .seat-buttons .modal-btn { min-height: 32px; padding: 4px 10px; font-size: 12px; }
+            :root {
+                --hud-score-size: 32px;
+                --cell-gap: 4px;
+                --cell-size: min(calc((100vw - 28px) / 3 - 4px), calc((100svh - 22rem) / 6));
+            }
+            .battle-stage {
+                flex: 1 1 auto;
+                min-height: 0;
+                width: 100%; max-width: 100%; margin: 4px auto 0;
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-areas:
+                    "p1"
+                    "center"
+                    "p2";
+                grid-template-rows: auto auto auto;
+                gap: 6px;
+                justify-items: center;
+                align-items: center;
+            }
+            .battle-center { display: grid; gap: 4px; justify-items: center; align-content: center; align-self: stretch; width: 100%; min-width: 0; height: 100%; }
+            .match-hud {
+                margin: 0 auto; padding: 2px 6px; gap: 6px; max-width: 100%;
+                box-sizing: border-box;
+            }
+            .hud-player { gap: 6px; min-width: 0; }
+            .hud-seat { font-size: 9px; }
+            .status-box { margin: 0; padding: 2px 6px; min-height: 0; gap: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
+            .player-panel {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: max-content;
+                max-width: 100%;
+                padding: 6px;
+                margin-inline: auto;
+                box-sizing: border-box;
+            }
+            .player-panel h3 {
+                font-size: 12px;
+                margin: 0 0 4px;
+                width: var(--grid-size);
+                max-width: 100%;
+                line-height: 1.2;
+                text-align: center;
+            }
+            .grid-wrapper { margin: 4px 0 0; }
+            .cell { border-width: 2px; }
+            .inning-board { padding: 0 5px; font-size: 18px; line-height: 1; }
+            .action-msg { font-size: 12px; line-height: 1.25; }
+            body.match-live h1 { font-size: clamp(22px, 6vw, 32px); padding-top: 0; }
+            body.match-live h1 span { font-size: clamp(15px, 4.6vw, 24px); }
+            body.match-live {
+                --cell-size: min(calc((100vw - 28px) / 3 - 4px), calc((100svh - 16.5rem) / 6));
+            }
+            body.match-live .battle-center {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: stretch;
+                gap: 2px;
+                height: auto;
+                align-self: center;
+            }
+            body.match-live .match-hud {
+                flex: 0 0 auto;
+                display: flex;
+                align-items: center;
+                width: 100%;
+                max-width: 100%;
+                min-height: 0;
+                min-width: 0;
+                margin: 0;
+                padding: 1px 4px;
+                gap: 6px;
+                box-sizing: border-box;
+                container-type: inline-size;
+                --hud-score-size: clamp(40px, 12.4vw, 48px);
+            }
+            body.match-live .hud-name {
+                font-size: 11px;
+            }
+            body.match-live .hud-seat {
+                font-size: 8px;
+            }
+            body.match-live .inning-board {
+                padding: 0 6px;
+                font-size: 28px;
+                line-height: 1;
+                min-height: 0;
+                align-self: center;
+            }
+            body.match-live .status-box {
+                flex: 0 0 auto;
+                min-height: 0;
+                padding: 1px 6px;
+            }
+            body.match-live .action-msg {
+                font-size: 10px;
+                line-height: 1.2;
+                white-space: normal;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        }
+
+        @media (max-width: 600px) {
+            h1 { text-shadow: 2px 2px #c0392b, 4px 4px #000; }
+            h1 span { text-shadow: 2px 2px #c0392b, 4px 4px #000; }
+            .quick-rules { margin: 1px auto 2px; font-size: clamp(7px, 2.4vw, 11px); flex-wrap: wrap; white-space: normal; overflow: visible; }
+            body.match-live .quick-rules { margin: 1px auto 2px; }
+            .start-panel { padding: 4px; }
+            .setup-toolbar { gap: 2px 8px; }
+            .mode-select, .utility-controls { gap: 2px; }
+            button.mode-btn { padding-inline: 5px; }
+            .hud-player { gap: 6px; }
+            .hud-point { font-size: 8px; }
+            .modal-box { padding: 22px 14px; }
+            .modal-title { font-size: 21px; }
+            .modal-body, .how-to-body { font-size: 14px; }
+            .result-actions { grid-template-columns: 1fr; }
+            .result-actions .result-quit { grid-column: auto; }
+        }
+        @media (max-width: 360px) {
+            :root { --hud-score-size: 28px; }
+            .inning-board { font-size: 16px; }
+            .match-hud { gap: 4px; padding: 2px 4px; }
+            body.match-live .match-hud { padding: 1px 4px; gap: 5px; }
+            body.match-live .hud-name { font-size: 10px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+        }
+    </style>
+</head>
+<body>
+<div id="game-root">
+
+    <h1>BINGO BOUT<span>BREAK & BLOCK</span></h1>
+    <div class="quick-rules">
+        <span class="rule-inning">9 INNINGS</span>
+        <span>OWN SHUFFLES</span>
+        <span>LINES SCORE</span>
+        <span>EACH # ONCE</span>
+    </div>
+
+    <div class="setup-toolbar">
+        <div class="mode-select" aria-label="Mode">
+            <span class="control-label">MODE</span>
+            <button id="btn-cpu" class="mode-btn active" onclick="setMode('cpu')">VS CPU</button>
+            <span class="mode-tab-sep" aria-hidden="true">|</span>
+            <button id="btn-2p" class="mode-btn" onclick="setMode('2p')">2 PLAYERS</button>
+        </div>
+        <div class="utility-controls">
+            <button id="btn-how-to" class="mode-btn how-to-btn" onclick="openHowTo()">HOW TO PLAY</button>
+            <button id="btn-bgm" class="mode-btn mute-btn" onclick="toggleBgm()" aria-label="BGM on">BGM</button>
+            <button id="btn-mute" class="mode-btn mute-btn" onclick="toggleMute()" aria-label="Sound on">🔊 ON</button>
+            <button id="btn-quit" class="mode-btn quit-btn" onclick="openQuitConfirm()" hidden>QUIT</button>
+        </div>
+    </div>
+
+    <div class="start-panel" id="start-panel">
+        <div class="seat-buttons" aria-label="Choose turn order">
+            <button id="btn-first-seat" class="modal-btn seat-choice-btn seat-choice-first" onclick="startGame('first')">GO FIRST</button>
+            <button id="btn-second-seat" class="modal-btn seat-choice-btn seat-choice-second" onclick="startGame('second')">GO SECOND</button>
+        </div>
+    </div>
+
+    <div class="battle-stage">
+        <!-- P1ボード（左側） -->
+        <div class="player-panel" id="p1-panel">
+            <h3 id="p1-title"><span class="text-p1">YOUR BOARD</span></h3>
+            <div class="grid-wrapper">
+                <div class="grid" id="board1"></div>
+                <svg class="lines-overlay" id="lines1"></svg>
+                <div class="block-burst-label" aria-hidden="true"></div>
+            </div>
+        </div>
+
+        <div class="battle-center">
+            <div class="match-hud">
+                <div class="hud-player hud-player-p1 text-p1">
+                    <span class="hud-name-stack">
+                        <span class="hud-name">🔴 <span id="p1-label">YOU</span></span>
+                        <span id="p1-seat" class="hud-seat" aria-hidden="true"></span>
+                    </span>
+                    <span id="score1" class="hud-score-number">0</span>
+                </div>
+                <div class="inning-board" id="inning-display">TOP 1<span class="inning-max"> / <span class="inning-max-n">9</span></span></div>
+                <div class="hud-player hud-player-p2 text-p2">
+                    <span id="score2" class="hud-score-number">0</span>
+                    <span class="hud-name-stack">
+                        <span class="hud-name">🔵 <span id="p2-label">CPU</span></span>
+                        <span id="p2-seat" class="hud-seat" aria-hidden="true"></span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="status-box" id="status-box">
+                <div class="action-msg" id="action-msg">CHOOSE A MODE AND TURN ORDER</div>
+            </div>
+        </div>
+
+        <!-- CPU/P2ボード（右側） -->
+        <div class="player-panel" id="p2-panel">
+            <h3 id="p2-title"><span class="text-p2">CPU'S BOARD</span></h3>
+            <div class="grid-wrapper">
+                <div class="grid" id="board2"></div>
+                <svg class="lines-overlay" id="lines2"></svg>
+                <div class="block-burst-label" aria-hidden="true"></div>
+            </div>
+        </div>
+    </div>
+    <div id="shuffle-callout" class="shuffle-callout" aria-hidden="true">SHUFFLE!!</div>
+    <div id="score-gain-callout" class="score-gain-callout" role="status" aria-live="polite" aria-atomic="true"></div>
+</div>
+
+    <div class="handoff-overlay" id="handoff-overlay" role="dialog" aria-modal="true" aria-labelledby="handoff-title" aria-describedby="handoff-body" aria-hidden="true">
+        <div class="handoff-box">
+            <div class="handoff-kicker">SECRET BREAK LOCKED</div>
+            <div class="handoff-icon" aria-hidden="true">🤝</div>
+            <h2 class="handoff-title" id="handoff-title">PASS TO BLOCK!</h2>
+            <div class="handoff-player" id="handoff-player">WAITING FOR BLOCK</div>
+            <p class="handoff-body" id="handoff-body">The BREAK pick is hidden. Only BLOCK should press ready.</p>
+            <div class="handoff-audio" aria-label="Sound">
+                <button id="handoff-bgm" class="mode-btn mute-btn" onclick="toggleBgm()" aria-label="BGM on">BGM</button>
+                <button id="handoff-mute" class="mode-btn mute-btn" onclick="toggleMute()" aria-label="Sound on">🔊 ON</button>
+            </div>
+            <button class="modal-btn handoff-ready-btn" id="handoff-ready-btn" onclick="finishTwoPlayerHandoff()">READY — BLOCK</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-box" id="modal-box">
+            <div class="modal-title" id="modal-title">MATCH OVER</div>
+            <div class="modal-score-label">FINAL SCORE</div>
+            <div class="modal-score" id="modal-score" aria-label="Final score">
+                <span id="modal-score1" class="text-p1">0</span>
+                <span class="modal-score-separator">－</span>
+                <span id="modal-score2" class="text-p2">0</span>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-actions result-actions">
+                <button class="modal-btn" onclick="replaySameSeat()">REMATCH</button>
+                <button class="modal-btn seat-btn-secondary" onclick="chooseSeatAgain()">CHANGE FIRST PLAYER</button>
+                <button class="modal-btn quit-danger result-quit" onclick="quitToMenu()">QUIT TO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="quit-overlay" role="dialog" aria-modal="true" aria-labelledby="quit-title" onclick="closeQuitFromOverlay(event)">
+        <div class="modal-box quit-confirm-box">
+            <div class="modal-title" id="quit-title">QUIT THIS MATCH?</div>
+            <div class="modal-body">End this match and return to turn-order select.</div>
+            <div class="modal-actions">
+                <button class="modal-btn quit-danger" onclick="quitCurrentGame()">QUIT</button>
+                <button class="modal-btn seat-btn-secondary" onclick="closeQuitConfirm()">KEEP PLAYING</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="how-to-overlay" role="dialog" aria-modal="true" aria-labelledby="how-to-title" onclick="closeHowToFromOverlay(event)">
+        <div class="modal-box how-to-box">
+            <div class="modal-title" id="how-to-title">HOW TO PLAY</div>
+            <div class="how-to-body">
+                <ol>
+                    <li>BREAK secretly picks one closed square on their own board.</li>
+                    <li>BLOCK guesses the same square.</li>
+                    <li>Same square: BLOCK! The square stays closed.</li>
+                    <li>Different square: BREAK! The square opens.</li>
+                    <li>Complete a line to score its numbers. Each number scores only once.</li>
+                    <li>After 9 turns each, the highest score wins. The match ends early if the result cannot change.</li>
+                </ol>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn" onclick="closeHowTo()">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confetti-container" class="confetti-container"></div>
+    <div id="rule-test-results" hidden></div>
+
+    <script>
+        const CONFIG = {
+            MAX_INNING: 9, BOARD_SIZE: 9,
+            WINNING_LINES: [ [0,1,2], [3,4,5], [6,7,8], [0,3,6], [1,4,7], [2,5,8], [0,4,8], [2,4,6] ]
+        };
+
+        const state = {
+            gameMode: 'cpu', p1Score: 0, p2Score: 0, isMuted: false,
+            p1Marks: Array(CONFIG.BOARD_SIZE).fill(false), p2Marks: Array(CONFIG.BOARD_SIZE).fill(false),
+            p1NumberLayout: Array.from({ length: CONFIG.BOARD_SIZE }, (_, i) => i + 1),
+            p2NumberLayout: Array.from({ length: CONFIG.BOARD_SIZE }, (_, i) => CONFIG.BOARD_SIZE - i),
+            inning: 1, turnRole: 0, firstPlayer: 1, seatChosen: false,
+            p1TurnsTaken: 0, p2TurnsTaken: 0, isHowToOpen: false, isQuitConfirmOpen: false, isStarting: false,
+            cpuBlockedBreakCell: null, cpuBlockedBreakStreak: 0, cpuBlockedCooldown: 0,
+            phase: 'break', selectedBreakCell: null, isHandoffPending: false, menuStage: 'full',
+            isProcessing: false, turnToken: 0, gameEnded: false, isBgmOff: false
+        };
+
+        let audioCtx = null; let bgmTimer = null; let bgmStep = 0; let bgmInningAtStart = null; 
+
+        function shouldBgmRun(gameState = state) {
+            return gameState.seatChosen && !gameState.isStarting && !gameState.gameEnded && !gameState.isMuted && !gameState.isBgmOff;
+        }
+
+        function isMatchPaused(gameState = state) {
+            return Boolean(gameState.isHowToOpen || gameState.isQuitConfirmOpen);
+        }
+
+        function stopBgmTimer() {
+            if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
+        }
+
+        function scheduleGameTimeout(myToken, delay, callback) {
+            let remaining = delay;
+            let last = Date.now();
+            const step = () => {
+                if (myToken !== state.turnToken) return;
+                const now = Date.now();
+                if (isMatchPaused()) {
+                    last = now;
+                    setTimeout(step, 80);
+                    return;
+                }
+                remaining -= (now - last);
+                last = now;
+                if (remaining <= 0) callback();
+                else setTimeout(step, Math.min(remaining, 120));
+            };
+            setTimeout(step, 0);
+        }
+
+        function viewportSize() {
+            const vv = window.visualViewport;
+            if (vv && vv.width && vv.height) {
+                return { w: vv.width, h: vv.height, left: vv.offsetLeft || 0, top: vv.offsetTop || 0 };
+            }
+            return { w: window.innerWidth, h: window.innerHeight, left: 0, top: 0 };
+        }
+
+        function syncAudioButtons() {
+            const muteLabel = state.isMuted ? '🔇 OFF' : '🔊 ON';
+            const muteAria = state.isMuted ? 'Sound off' : 'Sound on';
+            ['btn-mute', 'handoff-mute'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.innerText = muteLabel;
+                btn.setAttribute('aria-label', muteAria);
+                btn.classList.toggle('muted', state.isMuted);
+            });
+            const bgmAria = state.isBgmOff ? 'BGM off' : 'BGM on';
+            ['btn-bgm', 'handoff-bgm'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.setAttribute('aria-label', bgmAria);
+                btn.classList.toggle('muted', state.isBgmOff);
+            });
+        }
+
+        function bindAudioContext() {
+            if (!audioCtx || audioCtx._boutBound) return;
+            audioCtx._boutBound = true;
+            audioCtx.addEventListener('statechange', () => {
+                if (audioCtx && audioCtx.state === 'running' && shouldBgmRun() && !document.hidden) startBGM();
+            });
+        }
+
+        function initAudio() {
+            if (typeof window === 'undefined') return; 
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return; 
+            
+            if (!audioCtx) audioCtx = new AudioContextClass();
+            bindAudioContext();
+            if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') audioCtx.resume();
+            
+            if (shouldBgmRun() && !document.hidden) startBGM();
+        }
+
+        // 序盤も D/A の温かい土台。メロディは 220〜392。キックは中盤から。
+        const bgmMelodyEarly = [220, 247, 262, 294, 330, 349, 392, 370, 220, 262, 330, 392, 370, 330, 294, 247, 330, 311, 294, 262, 247, 220, 196, 220];
+        const bgmMelodyMid = [220, 247, 277, 330, 330, 277, 247, 220, 165, 220, 277, 330, 294, 277, 247, 220, 262, 294, 330, 392, 330, 294, 247, 196];
+        const bgmMelodyLate = [247, 294, 330, 247, 294, 392, 330, 294, 220, 247, 294, 220, 247, 330, 294, 247, 294, 330, 392, 330, 294, 262, 247, 220];
+        const bgmFriendsPiano = [185.00, 220.00, 293.66, 220.00, 185.00, 220.00, 329.63, 220.00];
+        const bgmFriendsBass = [146.83, 146.83, 220.00, 146.83, 164.81, 146.83, 220.00, 110.00];
+
+        function getBGMInterval() {
+            if (state.inning === CONFIG.MAX_INNING) return 130;
+            if (state.inning >= 7) return 176;
+            if (state.inning >= 4) return 188;
+            return 198;
+        }
+
+        function getBgmMelody() {
+            if (state.inning >= 7) return bgmMelodyLate;
+            if (state.inning >= 4) return bgmMelodyMid;
+            return bgmMelodyEarly;
+        }
+
+        function playBgmTone(type, freq, peak, dur) {
+            if (!audioCtx || !freq || peak <= 0) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1400, audioCtx.currentTime);
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(Math.max(peak, 0.001), audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+            osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + dur + 0.02);
+        }
+
+        function playBgmHat(peak, dur) {
+            const n = Math.floor(audioCtx.sampleRate * dur);
+            const buf = audioCtx.createBuffer(1, n, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+            const src = audioCtx.createBufferSource(); src.buffer = buf;
+            const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1800;
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(peak, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+            src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            src.start();
+        }
+
+        function playBgmKick(freq, peak) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.45, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(peak, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.14);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.16);
+        }
+
+        function playBgmPulse() {
+            if (!audioCtx || !shouldBgmRun()) return;
+            const last = state.inning === CONFIG.MAX_INNING;
+            const i = bgmStep;
+            const melody = getBgmMelody();
+
+            playBgmTone('triangle', bgmFriendsPiano[i % 8], last ? 0.032 : (state.inning >= 7 ? 0.028 : 0.026), 0.12);
+            playBgmTone('sine', bgmFriendsBass[i % 8], state.inning >= 7 ? 0.06 : (state.inning >= 4 ? 0.055 : 0.048), 0.16);
+            playBgmTone('triangle', melody[i % melody.length], last ? 0.095 : (state.inning >= 7 ? 0.088 : 0.08), 0.13);
+
+            if (state.inning >= 4 && i % 4 === 0) playBgmKick(82.41, last ? 0.055 : 0.04);
+            if (state.inning >= 7 && i % 4 === 0) playBgmHat(last ? 0.012 : 0.008, 0.035);
+
+            bgmStep++;
+        }
+
+        function startBGM() {
+            if (bgmTimer || !shouldBgmRun() || document.hidden) return;
+            bgmInningAtStart = state.inning;
+            playBgmPulse();
+            bgmTimer = setInterval(() => {
+                if (!audioCtx || !shouldBgmRun() || document.hidden) {
+                    stopBgmTimer();
+                    return;
+                }
+                if (state.inning !== bgmInningAtStart) { stopBgmTimer(); startBGM(); return; }
+                playBgmPulse();
+            }, getBGMInterval());
+        }
+
+        function toggleBgm() {
+            state.isBgmOff = !state.isBgmOff;
+            if (state.isBgmOff) {
+                stopBgmTimer();
+            } else if (state.seatChosen && !state.gameEnded) {
+                initAudio();
+                if (shouldBgmRun() && !document.hidden) startBGM();
+            }
+            syncAudioButtons();
+        }
+
+        function toggleMute() {
+            state.isMuted = !state.isMuted;
+            if (state.isMuted) {
+                stopBgmTimer();
+            } else if (state.seatChosen && !state.gameEnded) {
+                initAudio();
+                if (shouldBgmRun() && !document.hidden) startBGM();
+            }
+            syncAudioButtons();
+        }
+
+        function playShuffleStartSound(shuffleToken) {
+            if (state.isMuted || !audioCtx || shuffleToken !== state.turnToken) return;
+            const now = audioCtx.currentTime;
+            [170, 230, 310, 420].forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, now + i * 0.075);
+                gain.gain.setValueAtTime(0.001, now + i * 0.075);
+                gain.gain.linearRampToValueAtTime(0.09, now + i * 0.075 + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.075 + 0.12);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now + i * 0.075); osc.stop(now + i * 0.075 + 0.13);
+            });
+        }
+
+        function playShuffleLandingSound(shuffleToken) {
+            if (state.isMuted || !audioCtx || shuffleToken !== state.turnToken) return;
+            const now = audioCtx.currentTime;
+            [
+                { freq: 784, type: 'triangle', peak: 0.07, delay: 0, dur: 0.2 },
+                { freq: 1175, type: 'triangle', peak: 0.08, delay: 0.018, dur: 0.26 },
+                { freq: 1568, type: 'sine', peak: 0.045, delay: 0.034, dur: 0.32 }
+            ].forEach(tone => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const start = now + tone.delay;
+                osc.type = tone.type;
+                osc.frequency.setValueAtTime(tone.freq, start);
+                gain.gain.setValueAtTime(0.001, start);
+                gain.gain.linearRampToValueAtTime(tone.peak, start + 0.01);
+                gain.gain.setValueAtTime(tone.peak * 0.7, start + 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + tone.dur);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(start); osc.stop(start + tone.dur + 0.02);
+            });
+        }
+
+        function playBingoLineSound() {
+            if (state.isMuted) return;
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, i) => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                gain.gain.setValueAtTime(0, now + i * 0.07);
+                gain.gain.linearRampToValueAtTime(0.12, now + i * 0.07 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.35);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now + i * 0.07); osc.stop(now + i * 0.07 + 0.38);
+            });
+        }
+
+        function playVictorySound(myToken) {
+            if (state.isMuted || (myToken !== undefined && myToken !== state.turnToken)) return;
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const notes = [440, 554.37, 659.25, 880, 1108.73];
+            notes.forEach((freq, i) => {
+                let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + i * 0.12);
+                gain.gain.setValueAtTime(0, now + i * 0.12);
+                gain.gain.linearRampToValueAtTime(0.15, now + i * 0.12 + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.6);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.65);
+            });
+            setTimeout(() => {
+                if ((myToken !== undefined && myToken !== state.turnToken) || state.isMuted || !audioCtx) return;
+                [440, 554.37, 659.25].forEach((freq) => {
+                    let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.1);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 1.15);
+                });
+            }, 600);
+        }
+
+        function playDefeatSound() {
+            if (state.isMuted) return;
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(280, now);
+            osc.frequency.exponentialRampToValueAtTime(78, now + 0.38);
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.13, now + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(now); osc.stop(now + 0.44);
+        }
+
+        function playDramaticRoll(myToken, callback) {
+            if (!state.isMuted) initAudio();
+            let count = 0;
+            const step = () => {
+                if (myToken !== state.turnToken) return;
+                if (isMatchPaused()) {
+                    setTimeout(step, 80);
+                    return;
+                }
+                if (audioCtx && !state.isMuted) {
+                    let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                    osc.type = 'square'; osc.frequency.setValueAtTime(200 + (count / 13) * 150, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+                    osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+                }
+                count++;
+                if (count >= 14) {
+                    if (myToken === state.turnToken && callback) callback();
+                    return;
+                }
+                setTimeout(step, 90);
+            };
+            setTimeout(step, 90);
+        }
+
+        function playBlockSuccessSound(myToken) {
+            if (state.isMuted) return;
+            initAudio(); setTimeout(() => {
+                if (myToken !== state.turnToken || !audioCtx || state.isMuted) return; 
+                let now = audioCtx.currentTime;
+                let bufferSize = audioCtx.sampleRate * 0.08; let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                let data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+                let noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                let filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(900, now);
+                let gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.35, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); noise.start(now);
+                [1046.5, 1567.98].forEach((freq, i) => {
+                    let osc = audioCtx.createOscillator(); let ogain = audioCtx.createGain();
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, now);
+                    ogain.gain.setValueAtTime(0, now); ogain.gain.linearRampToValueAtTime(0.1, now + 0.01); ogain.gain.exponentialRampToValueAtTime(0.001, now + 0.35 - i * 0.05);
+                    osc.connect(ogain); ogain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.4);
+                });
+            }, 180);
+        }
+
+        function playBlockFailSound(myToken) {
+            if (state.isMuted) return;
+            initAudio(); setTimeout(() => {
+                if (myToken !== state.turnToken || !audioCtx || state.isMuted) return; 
+                let now = audioCtx.currentTime;
+                let osc1 = audioCtx.createOscillator(); let gain1 = audioCtx.createGain();
+                osc1.type = 'square'; osc1.frequency.setValueAtTime(700, now); gain1.gain.setValueAtTime(0.08, now); gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                osc1.connect(gain1); gain1.connect(audioCtx.destination); osc1.start(now); osc1.stop(now + 0.08);
+                let osc2 = audioCtx.createOscillator(); let gain2 = audioCtx.createGain();
+                osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(310, now + 0.08); osc2.frequency.exponentialRampToValueAtTime(140, now + 0.42);
+                gain2.gain.setValueAtTime(0.001, now + 0.08); gain2.gain.linearRampToValueAtTime(0.09, now + 0.12); gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+                osc2.connect(gain2); gain2.connect(audioCtx.destination); osc2.start(now + 0.08); osc2.stop(now + 0.46);
+            }, 180);
+        }
+
+        function playBreakAttemptCue(myToken) {
+            if (state.isMuted) return;
+            initAudio();
+            if (myToken !== state.turnToken || !audioCtx || state.isMuted) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(170, now);
+            osc.frequency.exponentialRampToValueAtTime(430, now + 0.14);
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.055, now + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.17);
+        }
+
+        function playBlockClashSound(myToken) {
+            if (state.isMuted) return;
+            initAudio(); setTimeout(() => {
+                if (myToken !== state.turnToken || !audioCtx || state.isMuted) return;
+                const now = audioCtx.currentTime;
+                const bufferSize = audioCtx.sampleRate * 0.09;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+                const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.setValueAtTime(780, now);
+                const noiseGain = audioCtx.createGain(); noiseGain.gain.setValueAtTime(0.28, now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+                noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(audioCtx.destination); noise.start(now);
+                [220, 440].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                    osc.type = i === 0 ? 'square' : 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 0.78, now + 0.28);
+                    gain.gain.setValueAtTime(i === 0 ? 0.08 : 0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.32);
+                });
+            }, 180);
+        }
+
+        function playBreakDamageSound(myToken) {
+            if (state.isMuted) return;
+            initAudio();
+            if (myToken !== state.turnToken || !audioCtx || state.isMuted) return;
+            const now = audioCtx.currentTime;
+            const bufferSize = audioCtx.sampleRate * 0.24;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(720, now);
+            const noiseGain = audioCtx.createGain(); noiseGain.gain.setValueAtTime(0.22, now); noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+            noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(audioCtx.destination); noise.start(now);
+
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(230, now);
+            osc.frequency.exponentialRampToValueAtTime(82, now + 0.48);
+            gain.gain.setValueAtTime(0.11, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.52);
+        }
+
+        function playBreakSound() {
+            if (state.isMuted) return;
+            initAudio(); 
+            if (!audioCtx) return;
+            let bufferSize = audioCtx.sampleRate * 0.2; let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            let data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+            let noise = audioCtx.createBufferSource(); noise.buffer = buffer; let filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.setValueAtTime(1400, audioCtx.currentTime); filter.Q.setValueAtTime(2.5, audioCtx.currentTime);
+            let gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); noise.start();
+        }
+
+        function playShieldMissSound(myToken) {
+            if (state.isMuted) return;
+            initAudio(); setTimeout(() => {
+                if (myToken !== state.turnToken || !audioCtx || state.isMuted) return;
+                const now = audioCtx.currentTime;
+                const bufferSize = Math.floor(audioCtx.sampleRate * 0.16);
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / bufferSize);
+                }
+                const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1700, now);
+                filter.frequency.exponentialRampToValueAtTime(520, now + 0.18);
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.075, now + 0.025);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); noise.start(now);
+            }, 65);
+        }
+
+        function playBlockWhiffSound(myToken) {
+            if (state.isMuted) return;
+            initAudio(); setTimeout(() => {
+                if (myToken !== state.turnToken || !audioCtx || state.isMuted) return;
+                const now = audioCtx.currentTime;
+                const bufferSize = Math.floor(audioCtx.sampleRate * 0.24);
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    const t = i / bufferSize;
+                    const envelope = t < 0.28 ? t / 0.28 : 1 - (t - 0.28) / 0.72;
+                    data[i] = (Math.random() * 2 - 1) * envelope;
+                }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.Q.setValueAtTime(2.2, now);
+                filter.frequency.setValueAtTime(2600, now);
+                filter.frequency.exponentialRampToValueAtTime(320, now + 0.22);
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.001, now);
+                noiseGain.gain.linearRampToValueAtTime(0.18, now + 0.028);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+                noise.start(now);
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1180, now);
+                osc.frequency.exponentialRampToValueAtTime(360, now + 0.17);
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.055, now + 0.018);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + 0.2);
+            }, 70);
+        }
+
+        function getOutcomeSoundKey(gameMode, attacker, wasBlocked) {
+            if (!wasBlocked) {
+                if (gameMode === 'cpu' && attacker === 2) return 'block-miss';
+                return 'break-neutral';
+            }
+            if (gameMode !== 'cpu') return 'block-neutral';
+            return attacker === 2 ? 'block-success' : 'block-fail';
+        }
+
+        function getBlockCalloutText(gameMode, attacker) {
+            if (gameMode === 'cpu' && attacker === 1) return 'BLOCKED!';
+            return 'BLOCK!';
+        }
+
+        function shouldCelebrateScoredLine(gameMode, scorer) {
+            return gameMode !== 'cpu' || scorer === 1;
+        }
+
+        function shouldCelebrateMatchResult(gameMode, winnerPlayer) {
+            return winnerPlayer !== 0 && (gameMode !== 'cpu' || winnerPlayer === 1);
+        }
+
+        function shouldPlayDefeatResult(gameMode, winnerPlayer) {
+            return gameMode === 'cpu' && winnerPlayer === 2;
+        }
+
+        function getResultNote(endType, inning, turnRole) {
+            if (endType === 'normal' || !endType) return '';
+            const half = turnRole === 0 ? 'TOP' : 'BOT';
+            return `ENDED ${half} ${inning}`;
+        }
+
+        function getWinnerTitle(winnerPlayer, gameMode = state.gameMode) {
+            if (winnerPlayer === 0) return 'DRAW!';
+            if (gameMode === 'cpu' && winnerPlayer === 2) return 'YOU LOSE';
+            if (gameMode === 'cpu' && winnerPlayer === 1) return 'YOU WIN!';
+            return `P${winnerPlayer} WINS!`;
+        }
+
+        function playTurnOutcomeSound(soundKey, myToken) {
+            if (soundKey === 'block-success') return playBlockSuccessSound(myToken);
+            if (soundKey === 'block-fail') return playBlockFailSound(myToken);
+            if (soundKey === 'block-neutral') return playBlockClashSound(myToken);
+            playBreakSound();
+            if (soundKey === 'block-miss') return playBlockWhiffSound(myToken);
+            playShieldMissSound(myToken);
+        }
+
+        function showBlockCallout(boardEl, text) {
+            const wrapper = boardEl && boardEl.closest('.grid-wrapper');
+            const label = wrapper && wrapper.querySelector('.block-burst-label');
+            if (!label) return;
+            label.textContent = text;
+            label.classList.toggle('blocked', text === 'BLOCKED!');
+            label.classList.remove('show');
+            void label.offsetWidth;
+            label.classList.add('show');
+        }
+
+        function clearBlockCallouts() {
+            document.querySelectorAll('.block-burst-label').forEach(label => {
+                label.classList.remove('show', 'blocked');
+                label.textContent = '';
+            });
+        }
+
+        function clearResultPresentation() {
+            clearConfetti();
+            const modalBox = document.getElementById('modal-box');
+            modalBox.classList.remove('win-flash', 'lose-flash');
+        }
+
+        function getCurrentPlayer() {
+            return state.turnRole === 0 ? state.firstPlayer : (state.firstPlayer === 1 ? 2 : 1);
+        }
+
+        function getOtherPlayer(player) {
+            return player === 1 ? 2 : 1;
+        }
+
+        function getPlayerName(player) {
+            if (player === 1) return state.gameMode === 'cpu' ? 'YOU' : 'P1';
+            return state.gameMode === 'cpu' ? 'CPU' : 'P2';
+        }
+
+        function getHudName(player) {
+            if (player === 1) return state.gameMode === 'cpu' ? 'YOU' : 'P1';
+            return state.gameMode === 'cpu' ? 'CPU' : 'P2';
+        }
+
+        function getBoardName(player) {
+            if (player === 1) return state.gameMode === 'cpu' ? 'YOUR' : 'P1';
+            return state.gameMode === 'cpu' ? "CPU'S" : 'P2';
+        }
+
+        function getPlayerScore(player) {
+            return player === 1 ? state.p1Score : state.p2Score;
+        }
+
+        function getNumberLayout(player) {
+            return player === 1 ? state.p1NumberLayout : state.p2NumberLayout;
+        }
+
+        function getSeatName(player) {
+            if (!state.seatChosen) return 'NOT SET';
+            return player === state.firstPlayer ? 'FIRST' : 'SECOND';
+        }
+
+        function updateHudSeatBadge(elementId, player) {
+            const badge = document.getElementById(elementId);
+            badge.textContent = '';
+            badge.className = 'hud-seat';
+            badge.setAttribute('aria-hidden', 'true');
+        }
+
+        function shouldUseTwoPlayerHandoff(gameState = state) {
+            return gameState.gameMode === '2p' && gameState.phase === 'break' && gameState.seatChosen &&
+                   !gameState.isStarting && !gameState.isProcessing && !gameState.gameEnded &&
+                   !gameState.isHandoffPending;
+        }
+
+        function setHandoffScreenVisible(isVisible) {
+            const overlay = document.getElementById('handoff-overlay');
+            const battleStage = document.querySelector('.battle-stage');
+            const setupToolbar = document.querySelector('.setup-toolbar');
+            overlay.classList.toggle('show', isVisible);
+            overlay.setAttribute('aria-hidden', String(!isVisible));
+            document.body.classList.toggle('handoff-locked', isVisible);
+            battleStage.inert = isVisible;
+            setupToolbar.inert = isVisible;
+        }
+
+        function beginTwoPlayerHandoff() {
+            state.phase = 'block';
+            state.isHandoffPending = true;
+
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+
+            // 押されたボタンそのものを作り直し、フォーカスや見た目の手掛かりを残さない。
+            renderBoards();
+            drawBingoLines();
+            renderUI();
+
+            const blockPlayer = getOtherPlayer(getCurrentPlayer());
+            document.getElementById('handoff-player').innerText =
+                `${getPlayerName(blockPlayer)} (${getSeatName(blockPlayer)}) — YOUR TURN`;
+            const readyButton = document.getElementById('handoff-ready-btn');
+            readyButton.disabled = true;
+            setHandoffScreenVisible(true);
+            syncAudioButtons();
+            const handoffToken = state.turnToken;
+            scheduleGameTimeout(handoffToken, 550, () => {
+                if (!state.isHandoffPending || handoffToken !== state.turnToken) return;
+                readyButton.disabled = false;
+                requestAnimationFrame(() => readyButton.focus({ preventScroll: true }));
+            });
+        }
+
+        function finishTwoPlayerHandoff() {
+            if (!state.isHandoffPending) return;
+            const readyButton = document.getElementById('handoff-ready-btn');
+            readyButton.blur();
+            state.isHandoffPending = false;
+            setHandoffScreenVisible(false);
+            renderBoards();
+            drawBingoLines();
+            renderUI();
+        }
+
+        function clearTwoPlayerHandoff() {
+            state.isHandoffPending = false;
+            const readyButton = document.getElementById('handoff-ready-btn');
+            if (readyButton) {
+                readyButton.disabled = false;
+                readyButton.blur();
+            }
+            setHandoffScreenVisible(false);
+        }
+
+        function canHumanInteractWithBoard(boardOwner) {
+            if (!state.seatChosen || state.isStarting || state.isProcessing || state.gameEnded || state.isHandoffPending) return false;
+            const currentPlayer = getCurrentPlayer();
+            if (boardOwner !== currentPlayer) return false;
+            if (state.gameMode === '2p') return true;
+            return (currentPlayer === 1 && state.phase === 'break') ||
+                   (currentPlayer === 2 && state.phase === 'block');
+        }
+
+        function renderBoards() {
+            const b1 = document.getElementById('board1'); const b2 = document.getElementById('board2');
+            b1.innerHTML = ''; b2.innerHTML = '';
+            b1.classList.toggle('spatial-shuffling', state.isStarting);
+            b2.classList.toggle('spatial-shuffling', state.isStarting);
+            b1.setAttribute('aria-busy', String(state.isStarting));
+            b2.setAttribute('aria-busy', String(state.isStarting));
+            const p1DisplayLayout = state.isStarting ? createOrderedNumberLayout() : state.p1NumberLayout;
+            const p2DisplayLayout = state.isStarting ? createOrderedNumberLayout() : state.p2NumberLayout;
+            const p1ScoredCells = getScoredCellIndices(state.p1Marks);
+            const p2ScoredCells = getScoredCellIndices(state.p2Marks);
+            for (let i = 0; i < CONFIG.BOARD_SIZE; i++) {
+                const btn1 = document.createElement('button');
+                const p1IsScored = p1ScoredCells.has(i);
+                btn1.className = 'cell' + (state.p1Marks[i] ? ' marked-p1' : '') + (p1IsScored ? ' scored-number' : '');
+                btn1.innerHTML = `<span class="cell-text">${p1DisplayLayout[i]}</span>`; 
+                btn1.setAttribute('aria-label', `${p1DisplayLayout[i]}${p1IsScored ? ', scored' : ''}`);
+                btn1.disabled = state.p1Marks[i] || !canHumanInteractWithBoard(1); btn1.onclick = () => handleCellClick(1, i);
+                b1.appendChild(btn1);
+
+                const btn2 = document.createElement('button');
+                const p2IsScored = p2ScoredCells.has(i);
+                btn2.className = 'cell' + (state.p2Marks[i] ? ' marked-p2' : '') + (p2IsScored ? ' scored-number' : '');
+                btn2.innerHTML = `<span class="cell-text">${p2DisplayLayout[i]}</span>`; 
+                btn2.setAttribute('aria-label', `${p2DisplayLayout[i]}${p2IsScored ? ', scored' : ''}`);
+                btn2.disabled = state.p2Marks[i] || !canHumanInteractWithBoard(2); btn2.onclick = () => handleCellClick(2, i);
+                b2.appendChild(btn2);
+            }
+        }
+
+        function prepareLineOverlay(svg) {
+            const wrapper = svg.closest('.grid-wrapper');
+            if (!wrapper) return null;
+            const w = Math.max(1, wrapper.clientWidth);
+            const h = Math.max(1, wrapper.clientHeight);
+            svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+            svg.setAttribute('preserveAspectRatio', 'none');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            return wrapper;
+        }
+
+        function cellCenterInWrapper(wrapper, cell) {
+            const wr = wrapper.getBoundingClientRect();
+            const cr = cell.getBoundingClientRect();
+            const sx = wr.width ? wrapper.clientWidth / wr.width : 1;
+            const sy = wr.height ? wrapper.clientHeight / wr.height : 1;
+            return {
+                x: (cr.left + cr.width / 2 - wr.left) * sx,
+                y: (cr.top + cr.height / 2 - wr.top) * sy
+            };
+        }
+
+        function drawBingoLines() {
+            const svg1 = document.getElementById('lines1'); const svg2 = document.getElementById('lines2');
+            svg1.innerHTML = ''; svg2.innerHTML = '';
+            prepareLineOverlay(svg1);
+            prepareLineOverlay(svg2);
+
+            let p1Lines = getCompletedLines(state.p1Marks);
+            let p2Lines = getCompletedLines(state.p2Marks);
+
+            p1Lines.forEach(line => drawSingleSVGLine(svg1, line, '#e74c3c'));
+            p2Lines.forEach(line => drawSingleSVGLine(svg2, line, '#3498db'));
+        }
+
+        function drawSingleSVGLine(svg, line, color) {
+            const wrapper = prepareLineOverlay(svg);
+            const grid = wrapper && wrapper.querySelector('.grid');
+            const cells = grid ? grid.children : [];
+            const startCell = cells[line[0]];
+            const endCell = cells[line[2]];
+            if (!wrapper || !startCell || !endCell) return;
+            const a = cellCenterInWrapper(wrapper, startCell);
+            const b = cellCenterInWrapper(wrapper, endCell);
+            const cell = startCell.offsetWidth;
+            const extension = Math.max(10, cell * 0.31);
+            const dx = b.x - a.x; const dy = b.y - a.y;
+            const length = Math.sqrt(dx * dx + dy * dy) || 1;
+            const nx = dx / length; const ny = dy / length;
+            const x1 = a.x - nx * extension; const y1 = a.y - ny * extension;
+            const x2 = b.x + nx * extension; const y2 = b.y + ny * extension;
+
+            const lineEl = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            lineEl.setAttribute("x1", x1); lineEl.setAttribute("y1", y1);
+            lineEl.setAttribute("x2", x2); lineEl.setAttribute("y2", y2);
+            lineEl.setAttribute("stroke", color); lineEl.setAttribute("stroke-width", String(Math.max(6, cell * 0.15)));
+            lineEl.setAttribute("stroke-linecap", "round");
+            lineEl.style.filter = "drop-shadow(0px 0px 8px rgba(255,255,255,0.8))";
+
+            const drawLength = length + extension * 2;
+            lineEl.setAttribute("stroke-dasharray", drawLength);
+            lineEl.setAttribute("stroke-dashoffset", drawLength);
+            lineEl.style.animation = "drawLine 0.4s ease-out forwards";
+
+            svg.appendChild(lineEl);
+        }
+
+        function fireConfetti() {
+            const container = document.getElementById('confetti-container');
+            container.innerHTML = ''; container.style.display = 'block';
+            const colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#ecf0f1'];
+            
+            for(let i = 0; i < 100; i++) {
+                let conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                let duration = Math.random() * 2.5 + 2;
+                let delay = Math.random() * 0.5;
+                conf.style.animation = `confettiFall ${duration}s linear ${delay}s forwards`;
+                let sizeScale = Math.random() * 0.8 + 0.5;
+                conf.style.transform = `scale(${sizeScale})`;
+                container.appendChild(conf);
+            }
+        }
+
+        function clearConfetti() {
+            document.getElementById('confetti-container').style.display = 'none';
+        }
+
+        function areModeButtonsLocked(gameState = state) {
+            return Boolean(gameState.seatChosen);
+        }
+
+        function updateMatchControls() {
+            const matchIsActive = state.seatChosen && !state.gameEnded;
+            document.getElementById('btn-quit').hidden = !matchIsActive;
+            const modeLocked = areModeButtonsLocked();
+            document.getElementById('btn-cpu').disabled = modeLocked;
+            document.getElementById('btn-2p').disabled = modeLocked;
+        }
+
+        const WIDE_LAYOUT_MIN_WIDTH = 681;
+
+        function isWideLayout() {
+            return window.matchMedia(`(min-width: ${WIDE_LAYOUT_MIN_WIDTH}px)`).matches;
+        }
+
+        function clearWideLayoutSize() {
+            document.body.style.removeProperty('--cell-size');
+            document.body.style.removeProperty('--hud-score-size');
+        }
+
+        function wideLayoutFits(padding = 6) {
+            const { w: viewportW, h: viewportH } = viewportSize();
+            if (document.documentElement.scrollWidth > viewportW + 1) return false;
+            if (document.body.scrollWidth > viewportW + 1) return false;
+
+            const title = document.querySelector('h1');
+            if (title) {
+                const titleBox = title.getBoundingClientRect();
+                if (titleBox.top < -1 || titleBox.right > viewportW + 1) return false;
+            }
+
+            let farthestBottom = 0;
+            let farthestRight = 0;
+            document.querySelectorAll('.player-panel, .battle-center, .start-panel:not(.hidden)').forEach(el => {
+                const box = el.getBoundingClientRect();
+                farthestBottom = Math.max(farthestBottom, box.bottom);
+                farthestRight = Math.max(farthestRight, box.right);
+            });
+            return farthestBottom <= viewportH - padding && farthestRight <= viewportW - padding;
+        }
+
+        function clearContainScale() {
+            const root = document.getElementById('game-root');
+            if (!root) return;
+            root.style.transform = '';
+            root.style.left = '';
+            root.style.top = '';
+            root.style.position = '';
+        }
+
+        function fitContain() {
+            const root = document.getElementById('game-root');
+            if (!root) return;
+            clearContainScale();
+            void root.offsetHeight;
+            const { w: vw, h: vh, left, top } = viewportSize();
+            const rect = root.getBoundingClientRect();
+            const w = Math.max(root.scrollWidth, rect.width, 1);
+            const h = Math.max(root.scrollHeight, rect.height, 1);
+            const scale = Math.min(vw / w, vh / h, 1);
+            if (scale >= 0.995) return;
+            root.style.position = 'absolute';
+            root.style.left = `${left + (vw - w * scale) / 2}px`;
+            root.style.top = `${top + (vh - h * scale) / 2}px`;
+            root.style.transformOrigin = 'top left';
+            root.style.transform = `scale(${scale})`;
+        }
+
+        function fitWideLayout() {
+            clearContainScale();
+            if (!isWideLayout()) {
+                clearWideLayoutSize();
+                return;
+            }
+
+            const body = document.body;
+            let low = 36;
+            let high = Math.min(220, Math.floor(viewportSize().h / 3.2));
+            let best = low;
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                body.style.setProperty('--cell-size', `${mid}px`);
+                body.style.setProperty('--hud-score-size', `${Math.round(Math.max(32, Math.min(52, mid * 0.52)))}px`);
+                void body.offsetHeight;
+                if (wideLayoutFits()) {
+                    best = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            body.style.setProperty('--cell-size', `${best}px`);
+            body.style.setProperty('--hud-score-size', `${Math.round(Math.max(32, Math.min(52, best * 0.52)))}px`);
+        }
+
+        function measuredBlockHeight(el) {
+            if (!el) return 0;
+            const style = getComputedStyle(el);
+            if (style.display === 'none' || el.hidden || el.classList.contains('hidden')) return 0;
+            const box = el.getBoundingClientRect();
+            return box.height + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+        }
+
+        function fitPhoneBoards() {
+            if (isWideLayout()) return;
+            const { w: vw, h: vh } = viewportSize();
+            let used = measuredBlockHeight(document.querySelector('h1'))
+                + measuredBlockHeight(document.querySelector('.quick-rules'))
+                + measuredBlockHeight(document.querySelector('.setup-toolbar'))
+                + measuredBlockHeight(document.getElementById('start-panel'))
+                + measuredBlockHeight(document.querySelector('.battle-center'));
+            const root = document.getElementById('game-root');
+            if (root) {
+                const rs = getComputedStyle(root);
+                used += (parseFloat(rs.paddingTop) || 0) + (parseFloat(rs.paddingBottom) || 0);
+            }
+            const stage = document.querySelector('.battle-stage');
+            const rowGap = stage ? parseFloat(getComputedStyle(stage).rowGap) || 6 : 6;
+            used += rowGap * 2 + 8;
+            const leftover = vh - used;
+            const panelChrome = 28;
+            const perBoard = leftover / 2 - panelChrome;
+            const cellGap = parseFloat(getComputedStyle(document.body).getPropertyValue('--cell-gap')) || 4;
+            let cell = Math.floor((perBoard - cellGap * 2) / 3);
+            const maxFromWidth = Math.floor((vw - 28) / 3 - 4);
+            cell = Math.max(36, Math.min(cell, maxFromWidth, 96));
+            if (!Number.isFinite(cell)) return;
+            document.body.style.setProperty('--cell-size', `${cell}px`);
+        }
+
+        function scheduleWideLayoutFit() {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    fitWideLayout();
+                    fitPhoneMatchHud();
+                    if (!isWideLayout()) fitPhoneBoards();
+                    fitContain();
+                    if (state.seatChosen) drawBingoLines();
+                    requestAnimationFrame(() => {
+                        if (state.seatChosen) drawBingoLines();
+                    });
+                });
+            });
+        }
+
+        function hudContentOverflows(hud) {
+            if (hud.scrollWidth > hud.clientWidth + 1) return true;
+            const box = hud.getBoundingClientRect();
+            for (let i = 0; i < hud.children.length; i++) {
+                const child = hud.children[i].getBoundingClientRect();
+                if (child.right > box.right + 1.5 || child.left < box.left - 1.5) return true;
+            }
+            return false;
+        }
+
+        function fitPhoneMatchHud() {
+            const hud = document.querySelector('.match-hud');
+            const inning = document.getElementById('inning-display');
+            if (!hud) return;
+            hud.style.removeProperty('--hud-score-size');
+            if (inning) inning.style.removeProperty('font-size');
+            if (isWideLayout() || !document.body.classList.contains('match-live')) return;
+            void hud.offsetWidth;
+            let size = parseFloat(getComputedStyle(hud).getPropertyValue('--hud-score-size'));
+            if (!Number.isFinite(size)) size = 44;
+            while (size > 36 && hudContentOverflows(hud)) {
+                size -= 2;
+                hud.style.setProperty('--hud-score-size', `${size}px`);
+                void hud.offsetWidth;
+            }
+            if (inning && hudContentOverflows(hud)) {
+                let inn = parseFloat(getComputedStyle(inning).fontSize) || 28;
+                while (inn > 22 && hudContentOverflows(hud)) {
+                    inn -= 1;
+                    inning.style.fontSize = `${inn}px`;
+                    void hud.offsetWidth;
+                }
+            }
+        }
+
+        function renderUI() {
+            const matchLive = state.seatChosen && !state.gameEnded;
+            const sizeMayChange = document.body.classList.contains('match-live') !== matchLive;
+            document.body.classList.toggle('match-live', matchLive);
+            updateMatchControls();
+            if (sizeMayChange) {
+                scheduleWideLayoutFit();
+            }
+            if(state.gameEnded) return;
+
+            document.getElementById('score1').innerText = state.p1Score;
+            document.getElementById('score2').innerText = state.p2Score;
+            if (matchLive) requestAnimationFrame(() => fitPhoneMatchHud());
+
+            let p1Hud = getHudName(1);
+            let p2Hud = getHudName(2);
+            document.getElementById('p1-label').innerText = p1Hud;
+            document.getElementById('p2-label').innerText = p2Hud;
+            updateHudSeatBadge('p1-seat', 1);
+            updateHudSeatBadge('p2-seat', 2);
+            const p1SeatSuffix = state.seatChosen ? ` (${getSeatName(1)})` : '';
+            const p2SeatSuffix = state.seatChosen ? ` (${getSeatName(2)})` : '';
+            document.getElementById('p1-title').innerHTML = `<span class="text-p1">${getBoardName(1)} BOARD${p1SeatSuffix}</span>`;
+            document.getElementById('p2-title').innerHTML = `<span class="text-p2">${getBoardName(2)} BOARD${p2SeatSuffix}</span>`;
+            document.getElementById('btn-first-seat').innerText = state.gameMode === 'cpu' ? 'GO FIRST' : 'P1 GOES FIRST';
+            document.getElementById('btn-second-seat').innerText = state.gameMode === 'cpu' ? 'GO SECOND' : 'P1 GOES SECOND';
+            let inningEl = document.getElementById('inning-display');
+            let half = state.turnRole === 0 ? 'TOP' : 'BOT';
+            inningEl.innerHTML = `${half} ${state.inning}<span class="inning-max"> / <span class="inning-max-n">${CONFIG.MAX_INNING}</span></span>`;
+            inningEl.classList.toggle('climax', state.inning === CONFIG.MAX_INNING);
+
+            let activeBoardOwner = getCurrentPlayer();
+            let p1Panel = document.getElementById('p1-panel');
+            let p2Panel = document.getElementById('p2-panel');
+
+            if (state.isStarting) {
+                p1Panel.className = 'player-panel panel-active';
+                p2Panel.className = 'player-panel panel-active';
+            } else if (!state.seatChosen) {
+                p1Panel.className = 'player-panel panel-active';
+                p2Panel.className = 'player-panel panel-inactive';
+            } else {
+                p1Panel.className = 'player-panel ' + (activeBoardOwner === 1 ? 'panel-active' : 'panel-inactive');
+                p2Panel.className = 'player-panel ' + (activeBoardOwner === 2 ? 'panel-active' : 'panel-inactive');
+            }
+
+            let breakPlayer = `${getPlayerName(activeBoardOwner)} ${activeBoardOwner === 1 ? '🔴' : '🔵'}`;
+            let blockOwner = getOtherPlayer(activeBoardOwner);
+            let blockPlayer = `${getPlayerName(blockOwner)} ${blockOwner === 1 ? '🔴' : '🔵'}`;
+
+            let actionMsg = document.getElementById('action-msg');
+            if (!state.seatChosen) {
+                actionMsg.innerText = state.menuStage === 'order'
+                    ? 'CHOOSE WHO GOES FIRST'
+                    : 'CHOOSE A MODE AND TURN ORDER';
+            } else if (state.isStarting) {
+                actionMsg.innerText = '🔀 SHUFFLE!!';
+            } else if (state.isProcessing && state.phase === 'break') {
+                actionMsg.innerText = `⏳ ${breakPlayer} IS CHOOSING BREAK...`;
+            } else if (state.isProcessing) {
+                actionMsg.innerText = '⚔️ REVEALING PICKS...';
+            } else if (state.phase === 'break') {
+                actionMsg.innerText = `🔥 ${breakPlayer}: CHOOSE A SQUARE TO BREAK`;
+            } else {
+                actionMsg.innerText = `🛡️ ${blockPlayer}: GUESS THE BREAK`;
+            }
+
+        }
+
+        function showWarning(msg) {
+            let statusBox = document.getElementById('status-box');
+            let actionMsg = document.getElementById('action-msg');
+            actionMsg.innerText = "⚠️ " + msg; statusBox.classList.add('error');
+            setTimeout(() => { statusBox.classList.remove('error'); if (!state.isProcessing) renderUI(); }, 1200);
+        }
+
+        function emphasizeScore(player) {
+            const scoreElement = document.getElementById(player === 1 ? 'score1' : 'score2');
+            scoreElement.classList.remove('score-pop');
+            void scoreElement.offsetWidth;
+            scoreElement.classList.add('score-pop');
+        }
+
+        function formatScoreGain(points) {
+            return `GET! +${points}`;
+        }
+
+        function showScoreGainCallout(points) {
+            const callout = document.getElementById('score-gain-callout');
+            callout.innerText = formatScoreGain(points);
+            callout.classList.remove('show');
+            void callout.offsetWidth;
+            callout.classList.add('show');
+        }
+
+        function clearScoreGainCallout() {
+            const callout = document.getElementById('score-gain-callout');
+            callout.classList.remove('show');
+            callout.innerText = '';
+        }
+
+        function openHowTo() {
+            state.isHowToOpen = true;
+            document.getElementById('how-to-overlay').classList.add('show');
+        }
+
+        function closeHowTo() {
+            state.isHowToOpen = false;
+            document.getElementById('how-to-overlay').classList.remove('show');
+        }
+
+        function closeHowToFromOverlay(event) {
+            if (event.target.id === 'how-to-overlay') closeHowTo();
+        }
+
+        function openQuitConfirm() {
+            if (!state.seatChosen || state.gameEnded) return;
+            state.isQuitConfirmOpen = true;
+            document.getElementById('quit-overlay').classList.add('show');
+        }
+
+        function closeQuitConfirm() {
+            state.isQuitConfirmOpen = false;
+            document.getElementById('quit-overlay').classList.remove('show');
+        }
+
+        function closeQuitFromOverlay(event) {
+            if (event.target.id === 'quit-overlay') closeQuitConfirm();
+        }
+
+        function quitCurrentGame() {
+            if (!state.seatChosen) return;
+            state.turnToken++;
+            state.menuStage = 'order';
+            closeQuitConfirm();
+            document.getElementById('modal-overlay').classList.remove('show');
+            clearResultPresentation();
+            resetGame(false);
+        }
+
+        function quitToMenu() {
+            state.turnToken++;
+            state.menuStage = 'full';
+            document.getElementById('modal-overlay').classList.remove('show');
+            clearResultPresentation();
+            resetGame(false);
+        }
+
+        function setMode(mode) {
+            state.gameMode = mode;
+            state.menuStage = 'full';
+            document.getElementById('btn-cpu').className = 'mode-btn' + (mode === 'cpu' ? ' active' : '');
+            document.getElementById('btn-2p').className = 'mode-btn' + (mode === '2p' ? ' active' : '');
+            document.getElementById('modal-overlay').classList.remove('show');
+            clearResultPresentation();
+            resetGame(false);
+        }
+
+        function startGame(seatChoice) {
+            initAudio();
+            state.menuStage = 'full';
+            state.firstPlayer = seatChoice === 'first' ? 1 : 2;
+            state.seatChosen = true;
+            resetGame(true, true);
+        }
+
+        function queueCpuBreak(delay = 700) {
+            if (state.gameMode !== 'cpu' || getCurrentPlayer() !== 2 || state.gameEnded || !state.seatChosen) return;
+            state.isProcessing = true;
+            renderBoards(); drawBingoLines(); renderUI();
+            const myToken = state.turnToken;
+            scheduleGameTimeout(myToken, delay, () => {
+                if (myToken === state.turnToken && !state.gameEnded && state.seatChosen) cpuTakeTurn();
+            });
+        }
+
+        function handleCellClick(boardOwner, index) {
+            if (!canHumanInteractWithBoard(boardOwner)) return;
+            initAudio();
+            
+            let targetBoardOwner = getCurrentPlayer();
+            let currentMarks = targetBoardOwner === 1 ? state.p1Marks : state.p2Marks;
+
+            if (boardOwner !== targetBoardOwner) {
+                return showWarning('CHOOSE A SQUARE ON THE ACTIVE BOARD!');
+            }
+
+            if (currentMarks[index]) {
+                return showWarning('THAT SQUARE IS ALREADY OPEN!');
+            }
+
+            if (state.phase === 'break') {
+                state.selectedBreakCell = index;
+                if (state.gameMode === 'cpu' && targetBoardOwner === 1) {
+                    // CPUがYOUボードからBLOCK（阻止）する未あけマスを選択
+                    let blockCell = cpuSelectSmartCell(currentMarks, getNumberLayout(targetBoardOwner));
+                    if (blockCell === null) return showWarning('NO CLOSED SQUARES LEFT!');
+                    executeTurnWithAnimation(state.selectedBreakCell, blockCell);
+                } else if (shouldUseTwoPlayerHandoff()) {
+                    beginTwoPlayerHandoff();
+                } else {
+                    state.phase = 'block'; 
+                    renderUI();
+                }
+            } else if (state.phase === 'block') {
+                executeTurnWithAnimation(state.selectedBreakCell, index);
+            }
+        }
+
+        function getCellWeights(marks, numberLayout) {
+            const weights = Array(CONFIG.BOARD_SIZE).fill(0.5);
+            const scoredCells = getScoredCellIndices(marks);
+            const currentScore = calculateScore(marks, numberLayout);
+
+            CONFIG.WINNING_LINES.forEach(line => {
+                const missing = line.filter(idx => !marks[idx]);
+                if (missing.length === 0) return;
+                const unclaimedLineValue = line.reduce(
+                    (sum, idx) => sum + (scoredCells.has(idx) ? 0 : numberLayout[idx]), 0
+                );
+                const contribution = unclaimedLineValue / missing.length;
+                missing.forEach(idx => { weights[idx] += contribution; });
+            });
+
+            for (let i = 0; i < CONFIG.BOARD_SIZE; i++) {
+                if (marks[i]) continue;
+                const trialMarks = marks.slice();
+                trialMarks[i] = true;
+                const immediateGain = calculateScore(trialMarks, numberLayout) - currentScore;
+                weights[i] += immediateGain * 6 + numberLayout[i] * 0.15;
+            }
+            return weights;
+        }
+
+        function weightedRandomChoice(candidates, weights) {
+            if (!candidates || candidates.length === 0) return null; 
+            let total = candidates.reduce((sum, idx) => sum + weights[idx], 0);
+            let r = Math.random() * total;
+            for (let idx of candidates) { r -= weights[idx]; if (r <= 0) return idx; }
+            return candidates[candidates.length - 1];
+        }
+
+        // 修正点：すでに開いているマス（marks[i] === true）を絶対に含めない厳密フィルタ
+        function cpuSelectSmartCell(marks, numberLayout) {
+            let available = []; 
+            for (let i = 0; i < CONFIG.BOARD_SIZE; i++) {
+                if (!marks[i]) available.push(i);
+            }
+            if (available.length === 0) return null;
+            return weightedRandomChoice(available, getCellWeights(marks, numberLayout));
+        }
+
+        function getCpuBreakCandidatePool(available, blockedCell, cooldown, blockedStreak, retryRoll) {
+            const candidates = available.slice();
+            if (blockedCell === null || cooldown <= 0 || candidates.length <= 1 || !candidates.includes(blockedCell)) {
+                return candidates;
+            }
+            const retryChance = blockedStreak >= 2 ? 0.08 : 0.18;
+            if (retryRoll < retryChance) return candidates;
+            const alternatives = candidates.filter(index => index !== blockedCell);
+            return alternatives.length ? alternatives : candidates;
+        }
+
+        function prepareCpuBreakCandidates(available) {
+            const candidates = getCpuBreakCandidatePool(
+                available,
+                state.cpuBlockedBreakCell,
+                state.cpuBlockedCooldown,
+                state.cpuBlockedBreakStreak,
+                Math.random()
+            );
+            if (state.cpuBlockedCooldown > 0) state.cpuBlockedCooldown--;
+            return candidates;
+        }
+
+        function resetCpuBreakMemory() {
+            state.cpuBlockedBreakCell = null;
+            state.cpuBlockedBreakStreak = 0;
+            state.cpuBlockedCooldown = 0;
+        }
+
+        function rememberCpuBreakResult(breakCell, wasBlocked) {
+            if (wasBlocked) {
+                const sameCellWasReadAgain = state.cpuBlockedBreakCell === breakCell;
+                state.cpuBlockedBreakCell = breakCell;
+                state.cpuBlockedBreakStreak = sameCellWasReadAgain ? state.cpuBlockedBreakStreak + 1 : 1;
+                state.cpuBlockedCooldown = state.cpuBlockedBreakStreak >= 2 ? 2 : 1;
+                return;
+            }
+            if (breakCell === state.cpuBlockedBreakCell || state.cpuBlockedCooldown <= 0) {
+                resetCpuBreakMemory();
+            }
+        }
+
+        function cpuTakeTurn() {
+            if (state.gameMode !== 'cpu' || getCurrentPlayer() !== 2 || state.phase !== 'break' || state.gameEnded || !state.seatChosen) return;
+            // 修正点：CPUが自分のターンで穴あけ（BREAK）を狙う際も未あけマスのみから抽出
+            let available = []; 
+            for (let i = 0; i < CONFIG.BOARD_SIZE; i++) {
+                if (!state.p2Marks[i]) available.push(i);
+            }
+            if (available.length === 0) return;
+
+            const candidates = prepareCpuBreakCandidates(available);
+            state.selectedBreakCell = weightedRandomChoice(candidates, getCellWeights(state.p2Marks, state.p2NumberLayout));
+            state.phase = 'block'; state.isProcessing = false;
+            renderBoards(); drawBingoLines(); renderUI();
+            document.getElementById('action-msg').innerText = '⚠️ CPU PICKED A BREAK. GUESS AND BLOCK!';
+        }
+
+        function executeTurnWithAnimation(breakCell, blockCell) {
+            state.isProcessing = true; state.turnToken++; let myToken = state.turnToken;
+            renderBoards(); drawBingoLines(); renderUI();
+            document.getElementById('action-msg').innerText = '⚔️ REVEALING PICKS...';
+
+            playDramaticRoll(myToken, () => {
+                if (myToken !== state.turnToken) return;
+                let targetBoardOwner = getCurrentPlayer();
+                const targetBoard = document.getElementById(targetBoardOwner === 1 ? 'board1' : 'board2');
+                let targetCellBtn = targetBoard.children[breakCell];
+                let blockCellBtn = targetBoard.children[blockCell];
+
+                if (targetBoardOwner === 1) state.p1TurnsTaken++;
+                else state.p2TurnsTaken++;
+
+                let isP1Turn = (targetBoardOwner === 1);
+                const isCpuAttack = state.gameMode === 'cpu' && !isP1Turn;
+                const wasBlocked = breakCell === blockCell;
+                const outcomeSoundKey = getOutcomeSoundKey(state.gameMode, targetBoardOwner, wasBlocked);
+                if (wasBlocked) {
+                    // BLOCK成功（攻撃側は失敗・防衛側は成功）
+                    if (isCpuAttack) rememberCpuBreakResult(breakCell, true);
+                    playBreakAttemptCue(myToken);
+                    playTurnOutcomeSound(outcomeSoundKey, myToken);
+                    showBlockCallout(targetBoard, getBlockCalloutText(state.gameMode, targetBoardOwner));
+                    
+                    if (targetCellBtn) targetCellBtn.classList.add('block-clash');
+                    
+                    setTimeout(() => { 
+                        if (myToken === state.turnToken) {
+                            document.getElementById('action-msg').innerText = '🛡️ BLOCK! THE BREAK BOUNCED BACK.';
+                        }
+                    }, 200);
+                } else {
+                    // BREAK成功（攻撃側は成功・防衛側は失敗）
+                    if (isCpuAttack) rememberCpuBreakResult(breakCell, false);
+                    playTurnOutcomeSound(outcomeSoundKey, myToken);
+                    if (targetCellBtn) targetCellBtn.classList.add('ripping');
+                    if (blockCellBtn) blockCellBtn.classList.add('shield-miss');
+
+                    document.getElementById('action-msg').innerText = '💥 BREAK! THE SHIELD MISSED.';
+
+                    let p1PrevLines = getCompletedLines(state.p1Marks).length;
+                    let p2PrevLines = getCompletedLines(state.p2Marks).length;
+                    const previousScore = targetBoardOwner === 1 ? state.p1Score : state.p2Score;
+
+                    if (targetBoardOwner === 1) state.p1Marks[breakCell] = true; 
+                    else state.p2Marks[breakCell] = true;
+                    
+                    state.p1Score = calculateScore(state.p1Marks, state.p1NumberLayout);
+                    state.p2Score = calculateScore(state.p2Marks, state.p2NumberLayout);
+                    document.getElementById('score1').innerText = state.p1Score; document.getElementById('score2').innerText = state.p2Score;
+                    requestAnimationFrame(() => fitPhoneMatchHud());
+
+                    let p1NewLines = getCompletedLines(state.p1Marks).length;
+                    let p2NewLines = getCompletedLines(state.p2Marks).length;
+                    if (p1NewLines > p1PrevLines || p2NewLines > p2PrevLines) {
+                        if (shouldCelebrateScoredLine(state.gameMode, targetBoardOwner)) playBingoLineSound();
+                        const currentScore = targetBoardOwner === 1 ? state.p1Score : state.p2Score;
+                        const gainedScore = currentScore - previousScore;
+                        emphasizeScore(targetBoardOwner);
+                        showScoreGainCallout(gainedScore);
+                        document.getElementById('action-msg').innerText =
+                            `🎯 ${getPlayerName(targetBoardOwner)} COMPLETED A LINE! +${gainedScore} (TOTAL ${currentScore})`;
+                    }
+                }
+
+                scheduleGameTimeout(myToken, 1300, () => {
+                    if (myToken !== state.turnToken) return;
+                    drawBingoLines(); 
+
+                    if (checkGameEndCondition()) return;
+
+                    if (state.turnRole === 1) {
+                        state.inning++;
+                        state.turnRole = 0;
+                    } else {
+                        state.turnRole = 1;
+                    }
+                    state.phase = 'break';
+                    let isCpuBreakNext = (state.gameMode === 'cpu' && getCurrentPlayer() === 2);
+                    state.isProcessing = isCpuBreakNext;
+                    
+                    renderBoards(); drawBingoLines(); renderUI();
+
+                    if (isCpuBreakNext) {
+                        document.getElementById('action-msg').innerText = 'CPU IS CHOOSING BREAK...';
+                        scheduleGameTimeout(myToken, 700, () => { if (myToken === state.turnToken) cpuTakeTurn(); });
+                    }
+                });
+            });
+        }
+
+        function getCompletedLines(marks) {
+            return CONFIG.WINNING_LINES.filter(line => line.every(idx => marks[idx]));
+        }
+
+        function getScoredCellIndices(marks) {
+            const scoredCells = new Set();
+            getCompletedLines(marks).forEach(line => line.forEach(idx => scoredCells.add(idx)));
+            return scoredCells;
+        }
+
+        function calculateScore(marks, numberLayout) {
+            return [...getScoredCellIndices(marks)].reduce((sum, idx) => sum + numberLayout[idx], 0);
+        }
+
+        function createOrderedNumberLayout() {
+            return Array.from({ length: CONFIG.BOARD_SIZE }, (_, i) => i + 1);
+        }
+
+        function createShuffledNumberLayout() {
+            const values = createOrderedNumberLayout();
+            for (let i = values.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [values[i], values[j]] = [values[j], values[i]];
+            }
+            return values;
+        }
+
+        function createIndividualNumberLayouts() {
+            const p1 = createShuffledNumberLayout();
+            let p2;
+            do {
+                p2 = createShuffledNumberLayout();
+            } while (p1.join(',') === p2.join(','));
+            return { p1, p2 };
+        }
+
+        function calculateHighestReachableScore(marks, numberLayout, turnsTaken) {
+            const unopened = [];
+            for (let i = 0; i < CONFIG.BOARD_SIZE; i++) {
+                if (!marks[i]) unopened.push(i);
+            }
+
+            const remainingTurns = Math.max(0, CONFIG.MAX_INNING - turnsTaken);
+            const maxOpenableCells = Math.min(remainingTurns, Math.max(0, unopened.length - 1));
+            let highestScore = calculateScore(marks, numberLayout);
+            const subsetCount = 1 << unopened.length;
+
+            for (let mask = 1; mask < subsetCount; mask++) {
+                let bitCount = 0;
+                let bits = mask;
+                while (bits) {
+                    bitCount += bits & 1;
+                    bits >>>= 1;
+                }
+                if (bitCount > maxOpenableCells) continue;
+
+                const trialMarks = marks.slice();
+                for (let bit = 0; bit < unopened.length; bit++) {
+                    if (mask & (1 << bit)) trialMarks[unopened[bit]] = true;
+                }
+                highestScore = Math.max(highestScore, calculateScore(trialMarks, numberLayout));
+            }
+            return highestScore;
+        }
+
+        function resetTurnCounters() {
+            state.p1TurnsTaken = 0;
+            state.p2TurnsTaken = 0;
+        }
+
+        function evaluateEndState(context) {
+            const { inning, half, p1Score, p2Score } = context;
+
+            if (inning >= CONFIG.MAX_INNING && half === 'bottom') {
+                if (p1Score === p2Score) {
+                    return { shouldEnd: true, winner: 0, result: 'draw', endType: 'normal', reason: '9回裏終了・合計得点同点' };
+                }
+                const winner = p1Score > p2Score ? 1 : 2;
+                return {
+                    shouldEnd: true, winner, result: winner === 1 ? 'p1' : 'p2', endType: 'normal',
+                    reason: '9回裏終了・合計得点で決着'
+                };
+            }
+
+            const hasReachabilityData =
+                Array.isArray(context.p1Marks) && Array.isArray(context.p2Marks) &&
+                Array.isArray(context.p1NumberLayout) && Array.isArray(context.p2NumberLayout) &&
+                Number.isInteger(context.p1TurnsTaken) && Number.isInteger(context.p2TurnsTaken);
+            if (!hasReachabilityData) return { shouldEnd: false, result: 'continue' };
+
+            const p1MaxScore = calculateHighestReachableScore(
+                context.p1Marks, context.p1NumberLayout, context.p1TurnsTaken
+            );
+            const p2MaxScore = calculateHighestReachableScore(
+                context.p2Marks, context.p2NumberLayout, context.p2TurnsTaken
+            );
+
+            if (p1Score > p2MaxScore) {
+                return { shouldEnd: true, winner: 1, result: 'p1', endType: 'early', p1MaxScore, p2MaxScore };
+            }
+            if (p2Score > p1MaxScore) {
+                return { shouldEnd: true, winner: 2, result: 'p2', endType: 'early', p1MaxScore, p2MaxScore };
+            }
+            if (p1Score === p2Score && p1MaxScore === p1Score && p2MaxScore === p2Score) {
+                return { shouldEnd: true, winner: 0, result: 'draw', endType: 'early-draw', p1MaxScore, p2MaxScore };
+            }
+            return { shouldEnd: false, result: 'continue', p1MaxScore, p2MaxScore };
+        }
+        window.evaluateEndState = evaluateEndState;
+        window.calculateScore = calculateScore;
+        window.calculateHighestReachableScore = calculateHighestReachableScore;
+        window.getScoredCellIndices = getScoredCellIndices;
+
+        function runRuleSelfTests() {
+            const numberLayout = [8, 1, 6, 3, 5, 7, 4, 9, 2];
+            const scoringCases = [
+                { name: 'ラインなしは0点', marks: [true, true, false, false, false, false, false, false, false], expected: 0 },
+                { name: '最初のラインは数字合計', marks: [true, true, true, false, false, false, false, false, false], expected: 15 },
+                { name: '交差数字は一度だけ加算', marks: [true, true, true, true, false, false, true, false, false], expected: 22 },
+                { name: '全マス得点化で45点', marks: Array(CONFIG.BOARD_SIZE).fill(true), expected: 45 }
+            ];
+            const oneUnopenedMarks = [false, true, true, true, true, true, true, true, true];
+            const maximumCases = [
+                {
+                    name: '未開放マスが残り1個なら最後のマスは開けられない',
+                    marks: oneUnopenedMarks, turnsTaken: 0,
+                    expected: calculateScore(oneUnopenedMarks, numberLayout)
+                }
+            ];
+            const earlyBase = {
+                p1NumberLayout: numberLayout, p2NumberLayout: numberLayout
+            };
+            const endCases = [
+                {
+                    name: '8回裏でも追いつけるなら続行',
+                    context: { ...earlyBase, inning: 8, half: 'bottom', p1Score: 15, p2Score: 0,
+                        p1Marks: [true, true, true, false, false, false, false, false, false],
+                        p2Marks: [true, true, false, false, false, false, false, false, false],
+                        p1TurnsTaken: 8, p2TurnsTaken: 8 },
+                    shouldEnd: false, result: 'continue'
+                },
+                {
+                    name: '9回表でも追いつけるなら続行',
+                    context: { ...earlyBase, inning: 9, half: 'top', p1Score: 15, p2Score: 0,
+                        p1Marks: [true, true, true, false, false, false, false, false, false],
+                        p2Marks: [true, true, false, false, false, false, false, false, false],
+                        p1TurnsTaken: 9, p2TurnsTaken: 8 },
+                    shouldEnd: false, result: 'continue'
+                },
+                {
+                    name: '9回表で追いつ不可なら早期終了',
+                    context: { ...earlyBase, inning: 9, half: 'top', p1Score: 15, p2Score: 0,
+                        p1Marks: [true, true, true, false, false, false, false, false, false],
+                        p2Marks: Array(CONFIG.BOARD_SIZE).fill(false),
+                        p1TurnsTaken: 9, p2TurnsTaken: 8 },
+                    shouldEnd: true, result: 'p1', endType: 'early'
+                },
+                {
+                    name: '相手の最高到達点を超えていれば終了する',
+                    context: { ...earlyBase, inning: 8, half: 'bottom', p1Score: 15, p2Score: 0,
+                        p1Marks: [true, true, true, false, false, false, false, false, false],
+                        p2Marks: Array(CONFIG.BOARD_SIZE).fill(false), p1TurnsTaken: 8, p2TurnsTaken: 8 },
+                    shouldEnd: true, result: 'p1', endType: 'early'
+                },
+                {
+                    name: '同点まで届く場合は終了しない',
+                    context: { ...earlyBase, inning: 8, half: 'bottom', p1Score: 15, p2Score: 0,
+                        p1Marks: [true, true, true, false, false, false, false, false, false],
+                        p2Marks: [true, true, false, false, false, false, false, false, false],
+                        p1TurnsTaken: 8, p2TurnsTaken: 8 },
+                    shouldEnd: false, result: 'continue'
+                },
+                {
+                    name: '同点で双方の得点が変化不能なら早期引き分け',
+                    context: { ...earlyBase, inning: 9, half: 'top', p1Score: 0, p2Score: 0,
+                        p1Marks: Array(CONFIG.BOARD_SIZE).fill(false), p2Marks: Array(CONFIG.BOARD_SIZE).fill(false),
+                        p1TurnsTaken: 9, p2TurnsTaken: 8 },
+                    shouldEnd: true, result: 'draw', endType: 'early-draw'
+                },
+                { name: '9回裏まで勝敗未確定なら従来どおり終了', context: { inning: 9, half: 'bottom', p1Score: 23, p2Score: 17 }, shouldEnd: true, result: 'p1', endType: 'normal' },
+                { name: '9回裏P2勝利', context: { inning: 9, half: 'bottom', p1Score: 12, p2Score: 30 }, shouldEnd: true, result: 'p2' },
+                { name: '9回裏同点', context: { inning: 9, half: 'bottom', p1Score: 21, p2Score: 21 }, shouldEnd: true, result: 'draw' }
+            ];
+
+            const failures = scoringCases.flatMap(testCase => {
+                const actual = calculateScore(testCase.marks, numberLayout);
+                return actual === testCase.expected ? [] : [{ name: testCase.name, expected: testCase.expected, actual }];
+            });
+            maximumCases.forEach(testCase => {
+                const actual = calculateHighestReachableScore(testCase.marks, numberLayout, testCase.turnsTaken);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            endCases.forEach(testCase => {
+                const actual = evaluateEndState(testCase.context);
+                if (actual.shouldEnd !== testCase.shouldEnd || actual.result !== testCase.result ||
+                    (testCase.endType && actual.endType !== testCase.endType)) {
+                    failures.push({
+                        name: testCase.name,
+                        expected: { shouldEnd: testCase.shouldEnd, result: testCase.result, endType: testCase.endType }, actual
+                    });
+                }
+            });
+            const individualLayouts = createIndividualNumberLayouts();
+            const p1IsPermutation = individualLayouts.p1.slice().sort((a, b) => a - b).join(',') === '1,2,3,4,5,6,7,8,9';
+            const p2IsPermutation = individualLayouts.p2.slice().sort((a, b) => a - b).join(',') === '1,2,3,4,5,6,7,8,9';
+            const layoutsAreDifferent = individualLayouts.p1.join(',') !== individualLayouts.p2.join(',');
+            if (!p1IsPermutation || !p2IsPermutation || !layoutsAreDifferent) {
+                failures.push({ name: '両盤面を1～9で別々にシャッフル', actual: individualLayouts });
+            }
+            state.p1TurnsTaken = 4;
+            state.p2TurnsTaken = 7;
+            resetTurnCounters();
+            if (state.p1TurnsTaken !== 0 || state.p2TurnsTaken !== 0) {
+                failures.push({ name: 'リセット時に手番カウンターが0へ戻る', actual: [state.p1TurnsTaken, state.p2TurnsTaken] });
+            }
+            const allCells = Array.from({ length: CONFIG.BOARD_SIZE }, (_, i) => i);
+            const avoidsReadCenter = getCpuBreakCandidatePool(allCells, 4, 1, 1, 0.5);
+            if (avoidsReadCenter.includes(4)) {
+                failures.push({ name: 'CPUは直前にBLOCKされたマスを通常は一時回避', actual: avoidsReadCenter });
+            }
+            const canRarelyRetryCenter = getCpuBreakCandidatePool(allCells, 4, 1, 1, 0.1);
+            if (!canRarelyRetryCenter.includes(4)) {
+                failures.push({ name: 'CPUは低確率で重要マスへ再挑戦可能', actual: canRarelyRetryCenter });
+            }
+            const stronglyAvoidsRepeatedBlock = getCpuBreakCandidatePool(allCells, 4, 2, 2, 0.1);
+            if (stronglyAvoidsRepeatedBlock.includes(4)) {
+                failures.push({ name: '同じマスを連続BLOCKされたCPUは回避を強化', actual: stronglyAvoidsRepeatedBlock });
+            }
+            const bgmCases = [
+                { name: '開始前の選択画面はBGM停止', state: { seatChosen: false, isStarting: false, gameEnded: false, isMuted: false }, expected: false },
+                { name: 'シャッフル終了後の対戦中はBGM再生', state: { seatChosen: true, isStarting: false, gameEnded: false, isMuted: false }, expected: true },
+                { name: 'シャッフル中はBGM停止', state: { seatChosen: true, isStarting: true, gameEnded: false, isMuted: false }, expected: false },
+                { name: 'BGMボタンオフは曲だけ停止', state: { seatChosen: true, isStarting: false, gameEnded: false, isMuted: false, isBgmOff: true }, expected: false },
+                { name: 'ミュート中はBGM停止', state: { seatChosen: true, isStarting: false, gameEnded: false, isMuted: true }, expected: false }
+            ];
+            bgmCases.forEach(testCase => {
+                const actual = shouldBgmRun(testCase.state);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const handoffBase = {
+                gameMode: '2p', phase: 'break', seatChosen: true, isStarting: false,
+                isProcessing: false, gameEnded: false, isHandoffPending: false
+            };
+            const handoffCases = [
+                { name: '2人戦のBREAK決定後は受け渡し画面を使う', state: handoffBase, expected: true },
+                { name: 'CPU戦では受け渡し画面を使わない', state: { ...handoffBase, gameMode: 'cpu' }, expected: false },
+                { name: 'BLOCK選択時は受け渡し画面を重ねない', state: { ...handoffBase, phase: 'block' }, expected: false },
+                { name: '処理中は受け渡し画面を開始しない', state: { ...handoffBase, isProcessing: true }, expected: false },
+                { name: '終了済み対戦では受け渡し画面を開始しない', state: { ...handoffBase, gameEnded: true }, expected: false }
+            ];
+            handoffCases.forEach(testCase => {
+                const actual = shouldUseTwoPlayerHandoff(testCase.state);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const scoreGainLabel = formatScoreGain(7);
+            if (scoreGainLabel !== 'GET! +7') {
+                failures.push({ name: '新規得点はGET! +獲得点で表示', expected: 'GET! +7', actual: scoreGainLabel });
+            }
+            const outcomeSoundCases = [
+                { name: 'YOUのBREAK成功は中立音', mode: 'cpu', attacker: 1, wasBlocked: false, expected: 'break-neutral' },
+                { name: 'CPUのBREAKをBLOCKし損ねた時は失敗音', mode: 'cpu', attacker: 2, wasBlocked: false, expected: 'block-miss' },
+                { name: 'YOUのBREAKがBLOCKされた時は失敗音', mode: 'cpu', attacker: 1, wasBlocked: true, expected: 'block-fail' },
+                { name: 'CPUのBREAKをBLOCKした時は成功音', mode: 'cpu', attacker: 2, wasBlocked: true, expected: 'block-success' },
+                { name: '2人戦のBREAK成功は中立音', mode: '2p', attacker: 1, wasBlocked: false, expected: 'break-neutral' },
+                { name: '2人戦のBLOCK成功は中立衝突音', mode: '2p', attacker: 2, wasBlocked: true, expected: 'block-neutral' }
+            ];
+            outcomeSoundCases.forEach(testCase => {
+                const actual = getOutcomeSoundKey(testCase.mode, testCase.attacker, testCase.wasBlocked);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const blockCalloutCases = [
+                { name: 'CPU戦のYOU BLOCK成功表示はBLOCK!', mode: 'cpu', attacker: 2, expected: 'BLOCK!' },
+                { name: 'CPU戦のYOU BREAK失敗表示はBLOCKED!', mode: 'cpu', attacker: 1, expected: 'BLOCKED!' },
+                { name: '2人戦のBLOCK表示はBLOCK!', mode: '2p', attacker: 1, expected: 'BLOCK!' }
+            ];
+            blockCalloutCases.forEach(testCase => {
+                const actual = getBlockCalloutText(testCase.mode, testCase.attacker);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const lineSoundCases = [
+                { name: 'YOUのライン完成は祝福音を鳴らす', mode: 'cpu', scorer: 1, expected: true },
+                { name: 'CPUのライン完成でYOU向け祝福音を鳴らさない', mode: 'cpu', scorer: 2, expected: false },
+                { name: '2人戦のライン完成は共通の結果音を鳴らす', mode: '2p', scorer: 2, expected: true }
+            ];
+            lineSoundCases.forEach(testCase => {
+                const actual = shouldCelebrateScoredLine(testCase.mode, testCase.scorer);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const matchCelebrationCases = [
+                { name: 'YOU勝利は祝福演出を使う', mode: 'cpu', winner: 1, expected: true },
+                { name: 'CPU勝利は祝福演出を使わない', mode: 'cpu', winner: 2, expected: false },
+                { name: '2人戦の勝利は祝福演出を使う', mode: '2p', winner: 2, expected: true },
+                { name: '引き分けは祝福演出を使わない', mode: 'cpu', winner: 0, expected: false }
+            ];
+            matchCelebrationCases.forEach(testCase => {
+                const actual = shouldCelebrateMatchResult(testCase.mode, testCase.winner);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const defeatResultCases = [
+                { name: 'CPU勝利は敗北演出を使う', mode: 'cpu', winner: 2, expected: true },
+                { name: 'YOU勝利は敗北演出を使わない', mode: 'cpu', winner: 1, expected: false },
+                { name: '2人戦の勝利は敗北演出を使わない', mode: '2p', winner: 2, expected: false },
+                { name: '引き分けは敗北演出を使わない', mode: 'cpu', winner: 0, expected: false }
+            ];
+            defeatResultCases.forEach(testCase => {
+                const actual = shouldPlayDefeatResult(testCase.mode, testCase.winner);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const winnerTitleCases = [
+                { name: 'CPUモードでwinnerPlayerが2ならYOU LOSE', winner: 2, mode: 'cpu', expected: 'YOU LOSE' },
+                { name: 'YOU勝利はYOU WIN!', winner: 1, mode: 'cpu', expected: 'YOU WIN!' },
+                { name: '2人戦P2勝利はP2 WINS!', winner: 2, mode: '2p', expected: 'P2 WINS!' },
+                { name: '引き分けはDRAW!', winner: 0, mode: 'cpu', expected: 'DRAW!' }
+            ];
+            winnerTitleCases.forEach(testCase => {
+                const actual = getWinnerTitle(testCase.winner, testCase.mode);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const resultNoteCases = [
+                { name: '9回表の早期終了はENDED TOP 9', endType: 'early', inning: 9, turnRole: 0, expected: 'ENDED TOP 9' },
+                { name: '8回裏の早期終了はENDED BOT 8', endType: 'early', inning: 8, turnRole: 1, expected: 'ENDED BOT 8' },
+                { name: '通常終了は注記を出さない', endType: 'normal', inning: 9, turnRole: 1, expected: '' }
+            ];
+            resultNoteCases.forEach(testCase => {
+                const actual = getResultNote(testCase.endType, testCase.inning, testCase.turnRole);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const nameCases = [
+                { name: 'HUDのプレイヤー名はYOU', fn: () => getHudName(1), expected: 'YOU' },
+                { name: '盤の肩書きはYOUR BOARDのYOUR', fn: () => getBoardName(1), expected: 'YOUR' }
+            ];
+            const prevModeForNames = state.gameMode;
+            state.gameMode = 'cpu';
+            nameCases.forEach(testCase => {
+                const actual = testCase.fn();
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            state.gameMode = prevModeForNames;
+            const modeLockCases = [
+                { name: '対戦中だけMODEをロックする', state: { seatChosen: true, menuStage: 'full' }, expected: true },
+                { name: 'QUIT後の先攻選択でもMODEを変えられる', state: { seatChosen: false, menuStage: 'order' }, expected: false },
+                { name: 'タイトルではMODEを変えられる', state: { seatChosen: false, menuStage: 'full' }, expected: false }
+            ];
+            modeLockCases.forEach(testCase => {
+                const actual = areModeButtonsLocked(testCase.state);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const pauseCases = [
+                { name: 'HOW TO中は試合進行を止める', state: { isHowToOpen: true, isQuitConfirmOpen: false }, expected: true },
+                { name: 'QUIT確認中は試合進行を止める', state: { isHowToOpen: false, isQuitConfirmOpen: true }, expected: true },
+                { name: 'モーダルが閉じていれば進行する', state: { isHowToOpen: false, isQuitConfirmOpen: false }, expected: false }
+            ];
+            pauseCases.forEach(testCase => {
+                const actual = isMatchPaused(testCase.state);
+                if (actual !== testCase.expected) failures.push({ name: testCase.name, expected: testCase.expected, actual });
+            });
+            const modalBox = document.getElementById('modal-box');
+            modalBox.classList.add('win-flash', 'lose-flash');
+            clearResultPresentation();
+            if (modalBox.classList.contains('win-flash') || modalBox.classList.contains('lose-flash')) {
+                failures.push({ name: '再戦・先攻変更・メニュー復帰で結果用クラスが残らない', actual: modalBox.className });
+            }
+            const extraPureCases = 6;
+            const total = scoringCases.length + maximumCases.length + endCases.length + extraPureCases +
+                bgmCases.length + handoffCases.length + pauseCases.length + modeLockCases.length + nameCases.length +
+                outcomeSoundCases.length + blockCalloutCases.length + lineSoundCases.length + matchCelebrationCases.length +
+                defeatResultCases.length + winnerTitleCases.length + resultNoteCases.length + 1;
+            const summary = { passed: total - failures.length, total, failures };
+            document.getElementById('rule-test-results').textContent = JSON.stringify(summary);
+            if (failures.length) console.error('シャッフルナンバー・合計得点ルールの自己テスト失敗', failures);
+            return summary;
+        }
+
+        function checkGameEndCondition() {
+            const decision = evaluateEndState({
+                inning: state.inning, half: state.turnRole === 0 ? 'top' : 'bottom',
+                p1Score: state.p1Score, p2Score: state.p2Score,
+                p1Marks: state.p1Marks, p2Marks: state.p2Marks,
+                p1NumberLayout: state.p1NumberLayout, p2NumberLayout: state.p2NumberLayout,
+                p1TurnsTaken: state.p1TurnsTaken, p2TurnsTaken: state.p2TurnsTaken
+            });
+            if (!decision.shouldEnd) return false;
+            endGame(decision);
+            return true;
+        }
+
+        function endGame(decision = {}) {
+            state.gameEnded = true;
+            state.isProcessing = true;
+            updateMatchControls();
+            if (bgmTimer) { stopBgmTimer(); }
+            const forcedWinner = Number.isInteger(decision.winner) ? decision.winner : null;
+            const endToken = state.turnToken;
+            let winnerPlayer = 0;
+            let p1Panel = document.getElementById('p1-panel');
+            let p2Panel = document.getElementById('p2-panel');
+            let modalBox = document.getElementById('modal-box');
+            
+            p1Panel.className = 'player-panel'; p2Panel.className = 'player-panel';
+            
+            if (forcedWinner === 1 || (forcedWinner === null && state.p1Score > state.p2Score)) {
+                winnerPlayer = 1;
+                p1Panel.classList.add('panel-win'); 
+                p2Panel.classList.add('panel-lose');
+            } else if (forcedWinner === 2 || (forcedWinner === null && state.p2Score > state.p1Score)) {
+                winnerPlayer = 2;
+                p2Panel.classList.add('panel-win'); 
+                p1Panel.classList.add('panel-lose');
+            } else {
+                p1Panel.classList.add('panel-draw');
+                p2Panel.classList.add('panel-draw');
+            }
+
+            document.getElementById('action-msg').innerText = 'MATCH OVER';
+            renderBoards();
+            
+            if (shouldCelebrateMatchResult(state.gameMode, winnerPlayer)) {
+                scheduleGameTimeout(endToken, 150, () => { playVictorySound(endToken); });
+                fireConfetti();
+                modalBox.classList.remove('lose-flash');
+                modalBox.classList.add('win-flash');
+            } else if (shouldPlayDefeatResult(state.gameMode, winnerPlayer)) {
+                clearConfetti();
+                modalBox.classList.remove('win-flash');
+                modalBox.classList.add('lose-flash');
+                scheduleGameTimeout(endToken, 150, () => { playDefeatSound(); });
+            } else {
+                clearConfetti();
+                modalBox.classList.remove('win-flash', 'lose-flash');
+            }
+            
+            scheduleGameTimeout(endToken, 1200, () => {
+                if (endToken !== state.turnToken) return;
+                const titleText = getWinnerTitle(winnerPlayer);
+                const resultNote = getResultNote(decision.endType, state.inning, state.turnRole);
+
+                document.getElementById('modal-title').innerText = titleText;
+                document.getElementById('modal-score1').innerText = state.p1Score;
+                document.getElementById('modal-score2').innerText = state.p2Score;
+                document.getElementById('modal-score').setAttribute(
+                    'aria-label', `Final score: ${getPlayerName(1)} ${state.p1Score}, ${getPlayerName(2)} ${state.p2Score}`
+                );
+                const modalBody = document.getElementById('modal-body');
+                modalBody.textContent = resultNote;
+                document.getElementById('modal-overlay').classList.add('show');
+            });
+        }
+
+        function replaySameSeat() {
+            document.getElementById('modal-overlay').classList.remove('show'); 
+            clearResultPresentation();
+            resetGame(true, true);
+        }
+
+        function chooseSeatAgain() {
+            document.getElementById('modal-overlay').classList.remove('show');
+            clearResultPresentation();
+            state.menuStage = 'order';
+            resetGame(false);
+        }
+
+        function resetGame(keepSeatChoice = true, showShuffle = false) {
+            state.turnToken++; state.gameEnded = false;
+            stopBgmTimer(); bgmStep = 0;
+            state.p1Score = 0; state.p2Score = 0; state.p1Marks.fill(false); state.p2Marks.fill(false);
+            resetTurnCounters();
+            resetCpuBreakMemory();
+            if (!keepSeatChoice) state.seatChosen = false;
+            if (state.seatChosen) {
+                const individualLayouts = createIndividualNumberLayouts();
+                state.p1NumberLayout = individualLayouts.p1;
+                state.p2NumberLayout = individualLayouts.p2;
+            } else {
+                state.p1NumberLayout = createOrderedNumberLayout();
+                state.p2NumberLayout = createOrderedNumberLayout();
+            }
+            state.inning = 1; state.turnRole = 0;
+            state.phase = 'break'; state.isProcessing = false; state.selectedBreakCell = null;
+            state.isHandoffPending = false;
+            state.isStarting = Boolean(showShuffle && state.seatChosen);
+
+            closeHowTo();
+            closeQuitConfirm();
+            clearTwoPlayerHandoff();
+            clearScoreGainCallout();
+            clearBlockCallouts();
+            clearResultPresentation();
+            document.getElementById('shuffle-callout').classList.remove('show');
+            document.querySelectorAll('.grid-wrapper').forEach(wrapper => wrapper.classList.remove('shuffle-landing'));
+
+            document.getElementById('start-panel').classList.toggle('hidden', state.seatChosen);
+            document.body.classList.toggle('match-live', state.seatChosen && !state.gameEnded);
+            
+            let p1Panel = document.getElementById('p1-panel'); let p2Panel = document.getElementById('p2-panel');
+            p1Panel.className = 'player-panel'; p2Panel.className = 'player-panel';
+
+            const cpuStarts = state.seatChosen && state.gameMode === 'cpu' && getCurrentPlayer() === 2;
+            state.isProcessing = state.isStarting || cpuStarts;
+            renderBoards(); drawBingoLines(); renderUI();
+            scheduleWideLayoutFit();
+            if (shouldBgmRun() && audioCtx && audioCtx.state === 'running' && !document.hidden) startBGM();
+            if (state.isStarting) {
+                const shuffleToken = state.turnToken;
+                beginStartingShuffle(shuffleToken);
+            } else if (cpuStarts) {
+                queueCpuBreak(700);
+            }
+        }
+
+        function getShuffleRoute(boardId, stageName) {
+            const routes = boardId === 'board1'
+                ? {
+                    burst: [8, 5, 6, 1, 7, 3, 2, 4, 0],
+                    cross: [2, 7, 4, 8, 0, 6, 5, 1, 3]
+                }
+                : {
+                    burst: [6, 3, 8, 5, 0, 7, 1, 4, 2],
+                    cross: [4, 8, 1, 6, 3, 0, 7, 2, 5]
+                };
+            return routes[stageName];
+        }
+
+        function moveNumberGrid(boardId, finalLayout, stageName) {
+            const grid = document.getElementById(boardId);
+            const cells = [...grid.children];
+            if (cells.length !== CONFIG.BOARD_SIZE) return;
+            const stepX = cells[1].offsetLeft - cells[0].offsetLeft;
+            const stepY = cells[3].offsetTop - cells[0].offsetTop;
+            const route = getShuffleRoute(boardId, stageName);
+
+            cells.forEach((cell, startIndex) => {
+                const number = startIndex + 1;
+                const destinationIndex = finalLayout.indexOf(number);
+                const targetIndex = route ? route[startIndex] : destinationIndex;
+                let moveX = (targetIndex % 3 - startIndex % 3) * stepX;
+                let moveY = (Math.floor(targetIndex / 3) - Math.floor(startIndex / 3)) * stepY;
+                let duration = 360;
+                let delay = 0;
+                let easing = 'cubic-bezier(0.22, 0.8, 0.28, 1)';
+                let glow = '0 0 26px rgba(241,196,15,0.88), inset 0 0 12px rgba(241,196,15,0.35)';
+
+                if (stageName === 'burst') {
+                    delay = (startIndex % 3) * 18 + Math.floor(startIndex / 3) * 12;
+                } else if (stageName === 'cross') {
+                    duration = 600;
+                    delay = ((8 - startIndex) % 3) * 20 + Math.floor((8 - startIndex) / 3) * 10;
+                    easing = 'cubic-bezier(0.36, 0, 0.64, 1)';
+                    glow = '0 0 34px rgba(241,196,15,1), inset 0 0 18px rgba(255,255,255,0.25)';
+                } else if (stageName === 'overshoot') {
+                    duration = 430;
+                    moveX = (destinationIndex % 3 - startIndex % 3) * stepX + ((startIndex % 3) - 1) * 12;
+                    moveY = (Math.floor(destinationIndex / 3) - Math.floor(startIndex / 3)) * stepY + (Math.floor(startIndex / 3) - 1) * 10;
+                    if (startIndex === 4) { moveX += 10; moveY -= 8; }
+                    easing = 'cubic-bezier(0.18, 0.85, 0.3, 1.08)';
+                    glow = '0 0 38px rgba(241,196,15,1), inset 0 0 20px rgba(241,196,15,0.45)';
+                } else if (stageName === 'settle') {
+                    duration = 330;
+                    easing = 'cubic-bezier(0.16, 1.25, 0.35, 1)';
+                    glow = '0 0 18px rgba(241,196,15,0.78)';
+                }
+
+                cell.style.zIndex = String(20 + number);
+                cell.style.transitionDuration = `${duration}ms`;
+                cell.style.transitionTimingFunction = easing;
+                cell.style.transitionDelay = `${delay}ms`;
+                cell.style.transform = `translate3d(${moveX}px, ${moveY}px, 0)`;
+                cell.style.boxShadow = glow;
+                const numberText = cell.querySelector('.cell-text');
+                if (numberText && stageName === 'burst') numberText.style.animationDelay = `${delay}ms`;
+            });
+        }
+
+        function finishStartingShuffle(shuffleToken) {
+            if (shuffleToken !== state.turnToken || state.gameEnded || !state.seatChosen) return;
+            document.getElementById('shuffle-callout').classList.remove('show');
+            document.querySelectorAll('.grid-wrapper').forEach(wrapper => wrapper.classList.remove('shuffle-landing'));
+            state.isStarting = false;
+            const cpuStartsAfterShuffle = state.gameMode === 'cpu' && getCurrentPlayer() === 2;
+            state.isProcessing = cpuStartsAfterShuffle;
+            renderBoards(); drawBingoLines(); renderUI();
+            if (shouldBgmRun() && audioCtx && audioCtx.state === 'running' && !document.hidden) startBGM();
+            if (cpuStartsAfterShuffle) queueCpuBreak(700);
+        }
+
+        function beginStartingShuffle(shuffleToken) {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                requestAnimationFrame(() => finishStartingShuffle(shuffleToken));
+                return;
+            }
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (shuffleToken !== state.turnToken || !state.isStarting) return;
+                    const callout = document.getElementById('shuffle-callout');
+                    callout.classList.remove('show');
+                    void callout.offsetWidth;
+                    callout.classList.add('show');
+                    playShuffleStartSound(shuffleToken);
+
+                    moveNumberGrid('board1', state.p1NumberLayout, 'burst');
+                    moveNumberGrid('board2', state.p2NumberLayout, 'burst');
+
+                    scheduleGameTimeout(shuffleToken, 420, () => {
+                        if (shuffleToken !== state.turnToken || !state.isStarting) return;
+                        moveNumberGrid('board1', state.p1NumberLayout, 'cross');
+                        moveNumberGrid('board2', state.p2NumberLayout, 'cross');
+                    });
+
+                    scheduleGameTimeout(shuffleToken, 1120, () => {
+                        if (shuffleToken !== state.turnToken || !state.isStarting) return;
+                        moveNumberGrid('board1', state.p1NumberLayout, 'overshoot');
+                        moveNumberGrid('board2', state.p2NumberLayout, 'overshoot');
+                    });
+
+                    scheduleGameTimeout(shuffleToken, 1580, () => {
+                        if (shuffleToken !== state.turnToken || !state.isStarting) return;
+                        moveNumberGrid('board1', state.p1NumberLayout, 'settle');
+                        moveNumberGrid('board2', state.p2NumberLayout, 'settle');
+                    });
+
+                    scheduleGameTimeout(shuffleToken, 1910, () => {
+                        if (shuffleToken !== state.turnToken || !state.isStarting) return;
+                        document.querySelectorAll('.grid-wrapper').forEach(wrapper => {
+                            wrapper.classList.remove('shuffle-landing');
+                            void wrapper.offsetWidth;
+                            wrapper.classList.add('shuffle-landing');
+                        });
+                        playShuffleLandingSound(shuffleToken);
+                    });
+
+                    scheduleGameTimeout(shuffleToken, 2180, () => finishStartingShuffle(shuffleToken));
+                });
+            });
+        }
+
+        document.getElementById('score-gain-callout').addEventListener('animationend', event => {
+            if (event.animationName === 'scoreGainBurst') event.currentTarget.classList.remove('show');
+        });
+        document.querySelectorAll('.block-burst-label').forEach(label => {
+            label.addEventListener('animationend', event => {
+                if (event.animationName === 'blockBurstPop') event.currentTarget.classList.remove('show');
+            });
+        });
+        let wideLayoutResizeTimer = 0;
+        function onViewportChange() {
+            clearTimeout(wideLayoutResizeTimer);
+            wideLayoutResizeTimer = setTimeout(() => scheduleWideLayoutFit(), 50);
+        }
+        window.addEventListener('resize', onViewportChange);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', onViewportChange);
+            window.visualViewport.addEventListener('scroll', onViewportChange);
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopBgmTimer();
+                if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+                return;
+            }
+            if (audioCtx && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) audioCtx.resume();
+            if (shouldBgmRun()) startBGM();
+        });
+        window.addEventListener('pagehide', () => {
+            stopBgmTimer();
+            if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+        });
+        runRuleSelfTests();
+        resetGame(false);
+        syncAudioButtons();
+
+    </script>
+</body>
+</html>

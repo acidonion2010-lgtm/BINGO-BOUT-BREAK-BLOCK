@@ -1,0 +1,178 @@
+{
+  "restoration": {
+    "ok": true,
+    "archives": [
+      {
+        "archive": "BINGO-BOUT-new-chat-handoff-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/handoff/BINGO-BOUT-handoff",
+        "manifest_files": 480,
+        "created": 481,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage10-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-continuation-20261015",
+        "manifest_files": 18,
+        "created": 19,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage11-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage11-20261015",
+        "manifest_files": 145,
+        "created": 146,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage12-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage12-20261015",
+        "manifest_files": 22,
+        "created": 23,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage13-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage13-20261015",
+        "manifest_files": 13,
+        "created": 14,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage14-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage14-20261015",
+        "manifest_files": 37,
+        "created": 38,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage15-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage15-20261015",
+        "manifest_files": 106,
+        "created": 107,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage16-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage16-20261015",
+        "manifest_files": 269,
+        "created": 270,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage17-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage17-20261015",
+        "manifest_files": 262,
+        "created": 263,
+        "verified_existing": 0
+      },
+      {
+        "archive": "BINGO-BOUT-stage18-20261016.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage18-20261016",
+        "manifest_files": 67,
+        "created": 68,
+        "verified_existing": 0
+      }
+    ],
+    "current_html_sha256": "59fff4685ff3f36e18d73fe9fa524ee57d81a348352e7b2912db4b7ecc1bb513"
+  },
+  "repeat_restore": {
+    "ok": true,
+    "archives": [
+      {
+        "archive": "BINGO-BOUT-new-chat-handoff-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/handoff/BINGO-BOUT-handoff",
+        "manifest_files": 480,
+        "created": 0,
+        "verified_existing": 481
+      },
+      {
+        "archive": "BINGO-BOUT-stage10-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-continuation-20261015",
+        "manifest_files": 18,
+        "created": 0,
+        "verified_existing": 19
+      },
+      {
+        "archive": "BINGO-BOUT-stage11-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage11-20261015",
+        "manifest_files": 145,
+        "created": 0,
+        "verified_existing": 146
+      },
+      {
+        "archive": "BINGO-BOUT-stage12-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage12-20261015",
+        "manifest_files": 22,
+        "created": 0,
+        "verified_existing": 23
+      },
+      {
+        "archive": "BINGO-BOUT-stage13-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage13-20261015",
+        "manifest_files": 13,
+        "created": 0,
+        "verified_existing": 14
+      },
+      {
+        "archive": "BINGO-BOUT-stage14-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage14-20261015",
+        "manifest_files": 37,
+        "created": 0,
+        "verified_existing": 38
+      },
+      {
+        "archive": "BINGO-BOUT-stage15-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage15-20261015",
+        "manifest_files": 106,
+        "created": 0,
+        "verified_existing": 107
+      },
+      {
+        "archive": "BINGO-BOUT-stage16-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage16-20261015",
+        "manifest_files": 269,
+        "created": 0,
+        "verified_existing": 270
+      },
+      {
+        "archive": "BINGO-BOUT-stage17-20261015.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage17-20261015",
+        "manifest_files": 262,
+        "created": 0,
+        "verified_existing": 263
+      },
+      {
+        "archive": "BINGO-BOUT-stage18-20261016.zip",
+        "target": "/workspace/handoff-restore-check-20261016/bingo-stage18-20261016",
+        "manifest_files": 67,
+        "created": 0,
+        "verified_existing": 68
+      }
+    ],
+    "current_html_sha256": "59fff4685ff3f36e18d73fe9fa524ee57d81a348352e7b2912db4b7ecc1bb513"
+  },
+  "preserved_stage17_trace_processor_mode": "0700",
+  "powershell_receiver": {
+    "status": "PASS",
+    "receiver": "/workspace/bingo-handoff-publish-20261016/receive-handoff.ps1",
+    "receiverBytes": 10130,
+    "receiverSha256": "0e872a17091483233851c49ca838e02571e3b53e6676f400da5356955a0cb042",
+    "runtime": "PowerShell 7.4.6 Linux portable; official binary verified by parent runtime agent",
+    "windowsPowerShell51": "static compatibility review; Windows 5.1 runtime not available",
+    "tests": [
+      "AST parser zero errors",
+      "default full ZIP ordered concatenation with complete SHA-256 check",
+      "starter also downloaded in default mode",
+      "starter-only skips full ZIP and parts",
+      "verified rerun reuses existing ZIPs",
+      "starter-only can upgrade to full with same PUBLICATION.json",
+      "publication records immutable revision and manifest/full ZIP hashes",
+      "existing mismatched final ZIP refused and unchanged",
+      "corrupt downloaded part rejected and temporary files cleaned",
+      "unsafe manifest part filename rejected before permanent writes"
+    ],
+    "testScript": "test-receiver.ps1",
+    "testRoot": "/workspace/bingo-handoff-publish-20261016/receiver-test-07149460d36e4761a5af4203378283f5"
+  },
+  "measurement_scope": "Archive transfer/restoration checks only. No new game/browser/DP/performance measurements. Windows PowerShell5.1 runtime not available; PowerShell7.4.6 runtime and5.1 static compatibility review."
+}

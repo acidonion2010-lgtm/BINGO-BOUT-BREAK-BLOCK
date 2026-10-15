@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "archives": [
+    {
+      "name": "BINGO-BOUT-new-chat-handoff-20261015.zip",
+      "bytes": 13519008,
+      "sha256": "42e3fcb524ad3a3d29378b7c2298c142e27f6a5369bb114076fad1cc818af6f4",
+      "prefix": "BINGO-BOUT-handoff",
+      "target": "handoff/BINGO-BOUT-handoff",
+      "expanded_bytes": 113234639
+    },
+    {
+      "name": "BINGO-BOUT-stage10-20261015.zip",
+      "bytes": 176849,
+      "sha256": "6886127f4a8468784ab4d297a60dc96fb9994a8f00ee8905f01d25c9ec997bf8",
+      "prefix": "BINGO-BOUT-stage10",
+      "target": "bingo-continuation-20261015",
+      "expanded_bytes": 1069236
+    },
+    {
+      "name": "BINGO-BOUT-stage11-20261015.zip",
+      "bytes": 14947670,
+      "sha256": "8bcfd41a32ff248ae0555174420025eaf79b827616e7fd7ad44ba08bab14524d",
+      "prefix": "BINGO-BOUT-stage11",
+      "target": "bingo-stage11-20261015",
+      "expanded_bytes": 193767147
+    },
+    {
+      "name": "BINGO-BOUT-stage12-20261015.zip",
+      "bytes": 403357,
+      "sha256": "4cb7f81948db1c82940fbb98e97db6913b455a954e4059bc348df47299ebffb6",
+      "prefix": "BINGO-BOUT-stage12",
+      "target": "bingo-stage12-20261015",
+      "expanded_bytes": 5749222
+    },
+    {
+      "name": "BINGO-BOUT-stage13-20261015.zip",
+      "bytes": 239779,
+      "sha256": "ca970350d41f856d415d9c94cf7892eb871685589a026f80ad24ccf7a6129528",
+      "prefix": "bingo-stage13-20261015",
+      "target": "bingo-stage13-20261015",
+      "expanded_bytes": 3320102
+    },
+    {
+      "name": "BINGO-BOUT-stage14-20261015.zip",
+      "bytes": 52229887,
+      "sha256": "75eaa52478857e1a7c5881ef918f71bda6b80a376e936fbfae55e7cfe95e6169",
+      "prefix": "bingo-stage14-20261015",
+      "target": "bingo-stage14-20261015",
+      "expanded_bytes": 751884139
+    },
+    {
+      "name": "BINGO-BOUT-stage15-20261015.zip",
+      "bytes": 1154563,
+      "sha256": "7ebdcb48b309dfde6f5ce16b82957755a3b6a8e987e130cc3e5a807af81ad882",
+      "prefix": "bingo-stage15-20261015",
+      "target": "bingo-stage15-20261015",
+      "expanded_bytes": 7081639
+    },
+    {
+      "name": "BINGO-BOUT-stage16-20261015.zip",
+      "bytes": 38839441,
+      "sha256": "bc36392c8ec4a1611454f43036ba0c2ac59c9752988e179c56318662645f0ceb",
+      "prefix": "BINGO-BOUT-stage16-20261015",
+      "target": "bingo-stage16-20261015",
+      "expanded_bytes": 865222372
+    },
+    {
+      "name": "BINGO-BOUT-stage17-20261015.zip",
+      "bytes": 69581207,
+      "sha256": "50b7efa4ca7e6843d5bacc460f98eb4fe15225e463d87ce82d1cec9647cf0b0a",
+      "prefix": "BINGO-BOUT-stage17-20261015",
+      "target": "bingo-stage17-20261015",
+      "expanded_bytes": 1724697132
+    },
+    {
+      "name": "BINGO-BOUT-stage18-20261016.zip",
+      "bytes": 4253164,
+      "sha256": "4c02bf6224ff70142a7b0a664efb4ef0d212d021dfff3b059318533fc2c7d003",
+      "prefix": "BINGO-BOUT-stage18-20261016",
+      "target": "bingo-stage18-20261016",
+      "expanded_bytes": 102208090
+    }
+  ]
+}

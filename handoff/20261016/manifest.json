@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "archive": {
+    "name": "BINGO-BOUT-new-chat-handoff-20261016.zip",
+    "bytes": 195467349,
+    "sha256": "bbe53e0ea236139622e5c316988bc69419dc7eb5bd98bea1f1c81941d0a01ac9"
+  },
+  "parts": [
+    {
+      "name": "BINGO-BOUT-new-chat-handoff-20261016.zip.part001",
+      "bytes": 67108864,
+      "sha256": "1ca32fe75ba74c4580d053e4fc73bd52e79e65d29ab25b99cf7460ae2d33d418"
+    },
+    {
+      "name": "BINGO-BOUT-new-chat-handoff-20261016.zip.part002",
+      "bytes": 67108864,
+      "sha256": "610ad0d8e521202df449af547a1d05ad5847c4b870716e757e88714008d8789a"
+    },
+    {
+      "name": "BINGO-BOUT-new-chat-handoff-20261016.zip.part003",
+      "bytes": 61249621,
+      "sha256": "833f624955cbe1f0c7b61f5ba6230533863611e00274a002d7c904706b3ff3a0"
+    }
+  ],
+  "starter": {
+    "name": "BINGO-BOUT-new-chat-starter-20261016.zip",
+    "bytes": 16434801,
+    "sha256": "d0667d74104867a8ab94b5a249659f88ae6fb49e4f7772c72f59f2df8c283542"
+  }
+}

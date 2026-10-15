@@ -4413,8 +4413,8 @@
             return CPU_DIFFICULTY[difficulty] || CPU_DIFFICULTY.normal;
         }
 
-        function getCpuSelectionWeights(marks, numberLayout, settings = getCpuDifficultySettings()) {
-            const raw = getCellWeights(marks, numberLayout);
+        function getCpuSelectionWeights(marks, numberLayout, settings = getCpuDifficultySettings(), rawWeights) {
+            const raw = rawWeights || getCellWeights(marks, numberLayout);
             const power = settings.weightPower;
             if (power === 1) return raw;
             return raw.map(weight => Math.pow(Math.max(weight, 0.0001), power));
@@ -4457,7 +4457,7 @@
             return alternatives.length ? alternatives : candidates;
         }
 
-        function prepareCpuBreakCandidates(available, marks, numberLayout) {
+        function prepareCpuBreakCandidates(available, marks, numberLayout, rawWeights) {
             const settings = getCpuDifficultySettings();
             const candidates = getCpuBreakCandidatePool(
                 available,
@@ -4466,7 +4466,7 @@
                 state.cpuBlockedBreakStreak,
                 Math.random(),
                 settings,
-                getCellWeights(marks, numberLayout)
+                rawWeights || getCellWeights(marks, numberLayout)
             );
             if (state.cpuBlockedCooldown > 0) state.cpuBlockedCooldown--;
             return candidates;
@@ -5695,11 +5695,12 @@
 
         function selectCpuLegacyCell(role, opens) {
             if (role === 'break') {
-                const candidates = prepareCpuBreakCandidates(opens, state.p2Marks, state.p2NumberLayout);
+                const rawWeights = getCellWeights(state.p2Marks, state.p2NumberLayout);
+                const candidates = prepareCpuBreakCandidates(opens, state.p2Marks, state.p2NumberLayout, rawWeights);
                 const settings = getCpuDifficultySettings();
                 return chooseCpuCandidate(
                     candidates,
-                    getCpuSelectionWeights(state.p2Marks, state.p2NumberLayout, settings),
+                    getCpuSelectionWeights(state.p2Marks, state.p2NumberLayout, settings, rawWeights),
                     settings
                 );
             }
@@ -5770,15 +5771,7 @@
         }
 
         function selectCpuBreakCell(available, rolls) {
-            if (getCpuDifficultyId() === 'normal') {
-                const candidates = prepareCpuBreakCandidates(available, state.p2Marks, state.p2NumberLayout);
-                const settings = getCpuDifficultySettings();
-                return chooseCpuCandidate(
-                    candidates,
-                    getCpuSelectionWeights(state.p2Marks, state.p2NumberLayout, settings),
-                    settings
-                );
-            }
+            if (getCpuDifficultyId() === 'normal') return selectCpuLegacyCell('break', available);
             return selectCpuEquilibriumCell('break', rolls);
         }
 
